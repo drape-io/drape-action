@@ -1,0 +1,30 @@
+{
+	"name": "drape-action",
+	"version": "1.0.0",
+	"private": true,
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "ncc build src/main.ts -o dist --source-map --license licenses.txt",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"typecheck": "tsc --noEmit",
+		"all": "npm run lint && npm run typecheck && npm run test && npm run build"
+	},
+	"dependencies": {
+		"@actions/core": "^1.11.1",
+		"@actions/exec": "^1.1.1",
+		"@actions/github": "^6.0.0",
+		"@actions/tool-cache": "^2.0.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"@types/node": "^22.0.0",
+		"@vercel/ncc": "^0.38.0",
+		"tsx": "^4.21.0",
+		"typescript": "^5.6.0",
+		"vitest": "^2.1.0"
+	}
+}
