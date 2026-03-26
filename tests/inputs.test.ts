@@ -19,7 +19,7 @@ describe("getInputs", () => {
 			const defaults: Record<string, string> = {
 				command: "coverage",
 				file: "coverage.xml",
-				token: "drape-token-123",
+				"api-key": "drape-key-123",
 				"cli-version": "latest",
 				"api-url": "https://app.drape.io",
 				timeout: "120",
@@ -44,7 +44,7 @@ describe("getInputs", () => {
 		const inputs = getInputs();
 		expect(inputs.command).toBe("coverage");
 		expect(inputs.file).toBe("coverage.xml");
-		expect(inputs.token).toBe("drape-token-123");
+		expect(inputs.apiKey).toBe("drape-key-123");
 	});
 
 	it("sets default comment header from command", () => {
@@ -57,7 +57,7 @@ describe("getInputs", () => {
 			if (name === "comment-header") return "my-custom-header";
 			if (name === "command") return "tests";
 			if (name === "file") return "results.xml";
-			if (name === "token") return "tok";
+			if (name === "api-key") return "tok";
 			return "";
 		});
 

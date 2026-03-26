@@ -51,9 +51,18 @@ export async function runUpload(
 ): Promise<UploadExecResult> {
 	const args = buildCliArgs(inputs);
 
+	const env: Record<string, string> = {
+		...process.env,
+		DRAPE_API_KEY: inputs.apiKey,
+		DRAPE_API_URL: inputs.apiUrl,
+	};
+	if (inputs.org) env.DRAPE_ORG = inputs.org;
+	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
+
 	const result = await exec.getExecOutput("drape", args, {
 		ignoreReturnCode: true,
 		silent: false,
+		env,
 	});
 
 	if (result.stderr) {

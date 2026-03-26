@@ -18,7 +18,7 @@ function makeInputs(overrides: Partial<ActionInputs> = {}): ActionInputs {
 	return {
 		command: "coverage",
 		file: "coverage.xml",
-		token: "tok",
+		apiKey: "tok",
 		cliVersion: "latest",
 		apiUrl: "https://app.drape.io",
 		wait: true,

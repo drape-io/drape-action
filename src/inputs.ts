@@ -16,7 +16,7 @@ export function getInputs(): ActionInputs {
 	return {
 		command: command as Command,
 		file: core.getInput("file", { required: true }),
-		token: core.getInput("token", { required: true }),
+		apiKey: core.getInput("api-key", { required: true }),
 		org: core.getInput("org") || undefined,
 		repo: core.getInput("repo") || undefined,
 		cliVersion: core.getInput("cli-version") || "latest",
