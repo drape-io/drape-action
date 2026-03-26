@@ -66,17 +66,15 @@ function generateCoverageComment(uploads: Upload[], exitCode: number): string {
 		out.push("");
 
 		out.push(
-			"| Metric | Base | Head | +/- |",
-			"|--------|------|------|-----|",
-			`| Coverage | ${diff.base_coverage_rate}% | ${diff.head_coverage_rate}% | ${diff.coverage_delta}% |`,
-			`| New code | | ${diff.new_code_coverage_rate}% | ${diff.new_lines_covered}/${diff.new_lines_total} lines |`,
+			"```diff",
+			`- Base coverage:     ${diff.base_coverage_rate}%`,
+			`+ Head coverage:     ${diff.head_coverage_rate}% (${diff.coverage_delta}%)`,
+			`  New code coverage: ${diff.new_code_coverage_rate}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`,
 		);
-
 		if (diff.regressed_lines_count > 0) {
-			out.push(
-				`| **Regressed lines** | | | **${diff.regressed_lines_count}** |`,
-			);
+			out.push(`! Regressed lines:   ${diff.regressed_lines_count}`);
 		}
+		out.push("```");
 
 		if (diff.regressed_files.length > 0) {
 			out.push("");
@@ -339,16 +337,18 @@ function generateLintComment(uploads: Upload[], exitCode: number): string {
 		out.push(lintSummaryLine(diff));
 		out.push("");
 
-		const delta = diff.head_violation_count - diff.base_violation_count;
-		const deltaStr = `${delta >= 0 ? "+" : ""}${delta}`;
-
 		out.push(
-			"| Metric | Base | Head | +/- |",
-			"|--------|------|------|-----|",
-			`| Violations | ${diff.base_violation_count} | ${diff.head_violation_count} | ${deltaStr} |`,
-			`| New | | ${diff.new_violation_count} | |`,
-			`| Resolved | | ${diff.resolved_violation_count} | |`,
+			"```diff",
+			`- Base violations:  ${diff.base_violation_count}`,
+			`+ Head violations:  ${diff.head_violation_count}`,
 		);
+		if (diff.new_violation_count > 0) {
+			out.push(`+ New:              ${diff.new_violation_count}`);
+		}
+		if (diff.resolved_violation_count > 0) {
+			out.push(`- Resolved:         ${diff.resolved_violation_count}`);
+		}
+		out.push("```");
 
 		if (diff.new_violations.length > 0) {
 			out.push(
