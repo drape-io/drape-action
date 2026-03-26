@@ -87,6 +87,18 @@ const comments = [
 							suppressed_count: 3,
 							unsuppressed_failure_count: 0,
 							flaky_count: 2,
+							flaky_tests: [
+								{
+									name: "test_payment_webhook",
+									suite: "payments",
+									flake_rate: 0.15,
+								},
+								{
+									name: "test_concurrent_upload",
+									suite: "uploads",
+									flake_rate: 0.08,
+								},
+							],
 						},
 					},
 				],

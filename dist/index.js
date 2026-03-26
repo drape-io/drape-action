@@ -32562,6 +32562,7 @@ function generateTestsComment(uploads, exitCode) {
     let totalSuppressed = 0;
     let totalUnsuppressed = 0;
     let totalFlaky = 0;
+    let allFlakyTests = [];
     for (const upload of uploads) {
         const r = upload.result;
         if (!r)
@@ -32571,6 +32572,7 @@ function generateTestsComment(uploads, exitCode) {
         totalSuppressed += r.suppressed_count ?? 0;
         totalUnsuppressed += r.unsuppressed_failure_count ?? 0;
         totalFlaky += r.flaky_count ?? 0;
+        allFlakyTests = allFlakyTests.concat(r.flaky_tests ?? []);
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
     const out = ["## Drape: Test Results", ""];
@@ -32593,6 +32595,15 @@ function generateTestsComment(uploads, exitCode) {
     out.push("| Metric | Count |", "|--------|-------|", `| Tests ingested | ${totalIngested} |`, `| Failed | ${totalFailed} |`, `| Suppressed | ${totalSuppressed} |`, `| Unsuppressed | ${totalUnsuppressed} |`);
     if (totalFlaky > 0) {
         out.push(`| Flaky | ${totalFlaky} |`);
+    }
+    if (allFlakyTests.length > 0) {
+        out.push("");
+        out.push("<details>", `<summary>Flaky tests (${allFlakyTests.length})</summary>`, "", "| Test | Suite | Flake rate |", "|------|-------|------------|");
+        for (const t of allFlakyTests) {
+            const rate = t.flake_rate != null ? `${Math.round(t.flake_rate * 100)}%` : "—";
+            out.push(`| ${t.name} | ${t.suite ?? "—"} | ${rate} |`);
+        }
+        out.push("", "</details>");
     }
     out.push("", footer(exitCode, drapeUrl));
     return lines(...out);
@@ -32652,19 +32663,23 @@ function generateScanComment(uploads, exitCode) {
                 parts.push(`${newLow} low`);
             out.push(`> :warning: **${totalNew} new vulnerabilities found** (${parts.join(", ")})`);
         }
+        out.push("");
+        out.push("| Severity | New | Suppressed | Unchanged |", "|----------|-----|------------|-----------|", `| Critical | ${newCritical} | — | — |`, `| High | ${newHigh} | — | — |`, `| Medium | ${newMedium} | — | — |`, `| Low | ${newLow} | — | — |`, `| **Total** | **${totalNew}** | **${suppressedTotal}** | **${unchangedTotal}** |`);
         if (allNewCves.length > 0) {
             out.push("");
-            out.push(`**New vulnerabilities (${allNewCves.length})**`, "", "| CVE | Severity | Package | Fix |", "|-----|----------|---------|-----|");
+            out.push("<details>", `<summary>New vulnerabilities (${allNewCves.length})</summary>`, "", "| CVE | Severity | Package | Fix |", "|-----|----------|---------|-----|");
             for (const cve of allNewCves) {
                 out.push(`| [${cve.cve_id}](https://nvd.nist.gov/vuln/detail/${cve.cve_id}) | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} | ${cve.fix_state ?? "—"} |`);
             }
+            out.push("", "</details>");
         }
         if (allResolvedCves.length > 0) {
             out.push("");
-            out.push(`**Resolved vulnerabilities (${allResolvedCves.length})**`, "", "| CVE | Severity | Package |", "|-----|----------|---------|");
+            out.push("<details>", `<summary>Resolved vulnerabilities (${allResolvedCves.length})</summary>`, "", "| CVE | Severity | Package |", "|-----|----------|---------|");
             for (const cve of allResolvedCves) {
                 out.push(`| ${cve.cve_id} | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} |`);
             }
+            out.push("", "</details>");
         }
         if (allSlaViolations.length > 0) {
             out.push("", "> [!WARNING]", `> **SLA Violations (${allSlaViolations.length})**`, ">", "> | CVE | Severity | Package | Overdue |", "> |-----|----------|---------|---------|");

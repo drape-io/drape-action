@@ -241,7 +241,7 @@ describe("generateComment", () => {
 			expect(body).toContain("All tests passed");
 		});
 
-		it("reports flaky test failures", () => {
+		it("reports flaky test failures with details", () => {
 			const response: DrapeCliResponse = {
 				uploads: [
 					{
@@ -252,6 +252,18 @@ describe("generateComment", () => {
 							suppressed_count: 2,
 							unsuppressed_failure_count: 0,
 							flaky_count: 2,
+							flaky_tests: [
+								{
+									name: "test_payment_webhook",
+									suite: "payments",
+									flake_rate: 0.15,
+								},
+								{
+									name: "test_concurrent_upload",
+									suite: "uploads",
+									flake_rate: 0.08,
+								},
+							],
 						},
 					},
 				],
@@ -261,6 +273,11 @@ describe("generateComment", () => {
 			expect(body).toContain("2 known flaky test(s) failed");
 			expect(body).toContain("not blocking CI");
 			expect(body).toContain("Flaky | 2");
+			expect(body).toContain("Flaky tests (2)");
+			expect(body).toContain("test_payment_webhook");
+			expect(body).toContain("payments");
+			expect(body).toContain("15%");
+			expect(body).toContain("test_concurrent_upload");
 		});
 
 		it("does not show flaky row when count is 0", () => {

@@ -34,6 +34,12 @@ export interface TestsResult {
     suppressed_count: number;
     unsuppressed_failure_count: number;
     flaky_count: number;
+    flaky_tests?: FlakyTest[];
+}
+export interface FlakyTest {
+    name: string;
+    suite?: string;
+    flake_rate?: number;
 }
 export interface ScanResult {
     scan_name?: string;
