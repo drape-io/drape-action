@@ -32483,6 +32483,7 @@ function wrappy (fn, cb) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.generateComment = generateComment;
 exports.generateErrorComment = generateErrorComment;
+exports.formatRate = formatRate;
 /**
  * Generate a markdown PR comment for the given command and CLI response.
  * Returns empty string if no comment should be generated.
@@ -32498,7 +32499,7 @@ function generateComment(command, exitCode, response, stderr) {
     }
     switch (command) {
         case "coverage":
-            return generateCoverageComment(uploads, exitCode);
+            return generateCoverageComment(uploads, exitCode, response.files_uploaded);
         case "tests":
             return generateTestsComment(uploads, exitCode);
         case "scan":
@@ -32508,26 +32509,34 @@ function generateComment(command, exitCode, response, stderr) {
     }
 }
 // --- Coverage ---
-function generateCoverageComment(uploads, exitCode) {
+function generateCoverageComment(uploads, exitCode, filesUploaded) {
+    // For batch uploads, the CLI attaches the merged result to uploads[0]
     const result = uploads[0]?.result;
     if (!result) {
-        return lines("## Drape: Coverage Report", "", "> Upload completed but no result data available yet.");
+        const msg = exitCode !== 0
+            ? "> :x: **Upload failed** — no result was produced"
+            : "> Upload completed but no result data available yet.";
+        return lines("## Drape: Coverage Report", "", msg);
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
     const diff = result.coverage_diff;
-    const out = ["## Drape: Coverage Report", ""];
+    const header = filesUploaded != null && filesUploaded > 1
+        ? `## Drape: Coverage Report (${filesUploaded} files merged)`
+        : "## Drape: Coverage Report";
+    const out = [header, ""];
     if (diff) {
         out.push(coverageSummaryLine(diff));
         out.push("");
-        out.push("```diff", `- Base coverage:     ${diff.base_coverage_rate}%`, `+ Head coverage:     ${diff.head_coverage_rate}% (${diff.coverage_delta}%)`, `  New code coverage: ${diff.new_code_coverage_rate}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`);
+        out.push("```diff", `- Base coverage:     ${formatRate(diff.base_coverage_rate)}%`, `+ Head coverage:     ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`, `  New code coverage: ${formatRate(diff.new_code_coverage_rate)}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`);
         if (diff.regressed_lines_count > 0) {
             out.push(`! Regressed lines:   ${diff.regressed_lines_count}`);
         }
         out.push("```");
-        if (diff.regressed_files.length > 0) {
+        const regressedFiles = diff.regressed_files ?? [];
+        if (regressedFiles.length > 0) {
             out.push("");
-            out.push("<details>", `<summary>Regressed files (${diff.regressed_files.length} file(s), ${diff.regressed_lines_count} lines)</summary>`, "", "| File | Lines | Ranges |", "|------|-------|--------|");
-            for (const f of diff.regressed_files) {
+            out.push("<details>", `<summary>Regressed files (${regressedFiles.length} file(s), ${diff.regressed_lines_count} lines)</summary>`, "", "| File | Lines | Ranges |", "|------|-------|--------|");
+            for (const f of regressedFiles) {
                 const ranges = (f.regressed_line_ranges ?? [])
                     .map(([start, end]) => `L${start}-${end}`)
                     .join(", ");
@@ -32702,7 +32711,10 @@ function generateScanComment(uploads, exitCode) {
 function generateLintComment(uploads, exitCode) {
     const result = uploads[0]?.result;
     if (!result) {
-        return lines("## Drape: Lint Report", "", "> Upload completed but no result data available yet.");
+        const msg = exitCode !== 0
+            ? "> :x: **Upload failed** — no result was produced"
+            : "> Upload completed but no result data available yet.";
+        return lines("## Drape: Lint Report", "", msg);
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
     const diff = result.lint_diff;
@@ -32718,9 +32730,10 @@ function generateLintComment(uploads, exitCode) {
             out.push(`- Resolved:         ${diff.resolved_violation_count}`);
         }
         out.push("```");
-        if (diff.new_violations.length > 0) {
-            out.push("", "<details>", `<summary>New violations (${diff.new_violations.length})</summary>`, "", "| File | Line | Rule | Severity | Message |", "|------|------|------|----------|---------|");
-            for (const v of diff.new_violations) {
+        const newViolations = diff.new_violations ?? [];
+        if (newViolations.length > 0) {
+            out.push("", "<details>", `<summary>New violations (${newViolations.length})</summary>`, "", "| File | Line | Rule | Severity | Message |", "|------|------|------|----------|---------|");
+            for (const v of newViolations) {
                 out.push(`| \`${v.file_path}\` | ${v.line} | ${v.rule_id} | ${v.severity} | ${v.message} |`);
             }
             out.push("", "</details>");
@@ -32769,6 +32782,13 @@ function footer(exitCode, drapeUrl) {
         return `> [View full report in Drape](${drapeUrl}) · **Result: ${label}** · *drape-io/drape-action*`;
     }
     return `> **Result: ${label}** · *drape-io/drape-action*`;
+}
+function formatRate(value) {
+    const num = Number.parseFloat(value);
+    if (Number.isNaN(num))
+        return value;
+    // Drop unnecessary trailing zeros: "84.50" → "84.5", "84.00" → "84"
+    return num.toFixed(2).replace(/\.?0+$/, "");
 }
 function lines(...parts) {
     return parts.join("\n");
@@ -32824,7 +32844,11 @@ function getInputs() {
     if (!VALID_COMMANDS.has(command)) {
         throw new Error(`Invalid command: "${command}". Must be one of: coverage, tests, scan, lint`);
     }
-    const commentHeader = core.getInput("comment-header") || `drape-${command}`;
+    const group = core.getInput("group") || undefined;
+    const scanName = core.getInput("scan-name") || undefined;
+    const suffix = group ?? scanName;
+    const commentHeader = core.getInput("comment-header") ||
+        (suffix ? `drape-${command}-${suffix}` : `drape-${command}`);
     return {
         command: command,
         file: core.getInput("file", { required: true }),
@@ -32836,11 +32860,11 @@ function getInputs() {
         wait: core.getBooleanInput("wait"),
         timeout: Number.parseInt(core.getInput("timeout") || "120", 10),
         verbose: core.getBooleanInput("verbose"),
-        group: core.getInput("group") || undefined,
+        group,
         format: core.getInput("format") || undefined,
         pathPrefix: core.getInput("path-prefix") || undefined,
         targetBranch: core.getInput("target-branch") || undefined,
-        scanName: core.getInput("scan-name") || undefined,
+        scanName,
         scanTag: core.getInput("scan-tag") || undefined,
         scanType: core.getInput("scan-type") || undefined,
         failOnVulnerabilities: core.getBooleanInput("fail-on-vulnerabilities"),
@@ -33164,8 +33188,10 @@ exports.buildCliArgs = buildCliArgs;
 exports.runUpload = runUpload;
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
+const comment_js_1 = __nccwpck_require__(2246);
 function buildCliArgs(inputs) {
-    const args = ["upload", inputs.command, inputs.file, "--quiet"];
+    const files = inputs.file.split(/\s+/).filter(Boolean);
+    const args = ["upload", inputs.command, ...files, "--quiet", "--json"];
     args.push(`--wait=${inputs.wait}`);
     args.push("--timeout", String(inputs.timeout));
     if (inputs.verbose) {
@@ -33224,7 +33250,7 @@ async function runUpload(inputs) {
         env.DRAPE_REPO = inputs.repo;
     const result = await exec.getExecOutput("drape", args, {
         ignoreReturnCode: true,
-        silent: false,
+        silent: !inputs.verbose,
         env,
     });
     if (result.stderr) {
@@ -33238,12 +33264,79 @@ async function runUpload(inputs) {
         core.warning("Failed to parse CLI JSON output");
         resultJson = { uploads: [] };
     }
+    logUploadSummary(inputs.command, resultJson, result.exitCode);
     return {
         exitCode: result.exitCode,
         resultJson,
         passed: result.exitCode === 0,
         stderr: result.stderr,
     };
+}
+function logUploadSummary(command, response, exitCode) {
+    if (response.files_matched != null) {
+        core.info(`Drape ${command}: ${response.files_uploaded ?? 0}/${response.files_matched} file(s) uploaded`);
+    }
+    const uploads = response.uploads ?? [];
+    if (uploads.length === 0) {
+        core.info(`Drape ${command}: no uploads (exit ${exitCode})`);
+        return;
+    }
+    for (const upload of uploads) {
+        const url = upload.drape_url ?? "";
+        const r = upload.result;
+        if (!r) {
+            core.info(`Drape ${command}: uploaded (no result yet) ${url}`);
+            continue;
+        }
+        switch (command) {
+            case "coverage": {
+                const diff = "coverage_diff" in r
+                    ? r.coverage_diff
+                    : undefined;
+                if (diff) {
+                    const status = diff.passed ? "passed" : "failed";
+                    core.info(`Drape coverage: ${status} — base ${(0, comment_js_1.formatRate)(diff.base_coverage_rate)}% → head ${(0, comment_js_1.formatRate)(diff.head_coverage_rate)}% (${(0, comment_js_1.formatRate)(diff.coverage_delta)}%), ${diff.regressed_lines_count} regressed lines ${url}`);
+                }
+                else {
+                    const cr = r;
+                    core.info(`Drape coverage: ${cr.coverage_rate ?? "?"}% across ${cr.file_count ?? "?"} files ${url}`);
+                }
+                break;
+            }
+            case "tests": {
+                const tr = r;
+                core.info(`Drape tests: ${tr.tests_ingested ?? 0} ingested, ${tr.failed_count ?? 0} failed, ${tr.suppressed_count ?? 0} suppressed, ${tr.unsuppressed_failure_count ?? 0} unsuppressed ${url}`);
+                break;
+            }
+            case "scan": {
+                const diff = "scan_diff" in r ? r.scan_diff : undefined;
+                if (diff) {
+                    const totalNew = diff.new_critical_count +
+                        diff.new_high_count +
+                        diff.new_medium_count +
+                        diff.new_low_count;
+                    core.info(`Drape scan: ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`);
+                }
+                else {
+                    const sr = r;
+                    core.info(`Drape scan: ${sr.total_vulnerabilities ?? 0} total vulnerabilities ${url}`);
+                }
+                break;
+            }
+            case "lint": {
+                const diff = "lint_diff" in r ? r.lint_diff : undefined;
+                if (diff) {
+                    const status = diff.passed ? "passed" : "failed";
+                    core.info(`Drape lint: ${status} — ${diff.new_violation_count} new, ${diff.resolved_violation_count} resolved ${url}`);
+                }
+                else {
+                    const lr = r;
+                    core.info(`Drape lint: ${lr.total_violations ?? 0} violations ${url}`);
+                }
+                break;
+            }
+        }
+    }
 }
 
 

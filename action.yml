@@ -11,7 +11,7 @@ inputs:
     description: 'Upload command: coverage, tests, scan, lint'
     required: true
   file:
-    description: 'File path or glob pattern to upload'
+    description: 'File path(s) or glob pattern(s) to upload (space or newline separated, e.g. "coverage/*.xml")'
     required: true
   api-key:
     description: 'Drape API key'

@@ -93,4 +93,30 @@ describe("getInputs", () => {
 		const inputs = getInputs();
 		expect(inputs.timeout).toBe(120);
 	});
+
+	it("includes group in default comment header", () => {
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "tests";
+			if (name === "file") return "results.xml";
+			if (name === "api-key") return "tok";
+			if (name === "group") return "unit";
+			return "";
+		});
+
+		const inputs = getInputs();
+		expect(inputs.commentHeader).toBe("drape-tests-unit");
+	});
+
+	it("includes scan-name in default comment header", () => {
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "scan";
+			if (name === "file") return "scan.json";
+			if (name === "api-key") return "tok";
+			if (name === "scan-name") return "myapp";
+			return "";
+		});
+
+		const inputs = getInputs();
+		expect(inputs.commentHeader).toBe("drape-scan-myapp");
+	});
 });

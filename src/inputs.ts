@@ -11,7 +11,12 @@ export function getInputs(): ActionInputs {
 		);
 	}
 
-	const commentHeader = core.getInput("comment-header") || `drape-${command}`;
+	const group = core.getInput("group") || undefined;
+	const scanName = core.getInput("scan-name") || undefined;
+	const suffix = group ?? scanName;
+	const commentHeader =
+		core.getInput("comment-header") ||
+		(suffix ? `drape-${command}-${suffix}` : `drape-${command}`);
 
 	return {
 		command: command as Command,
@@ -24,11 +29,11 @@ export function getInputs(): ActionInputs {
 		wait: core.getBooleanInput("wait"),
 		timeout: Number.parseInt(core.getInput("timeout") || "120", 10),
 		verbose: core.getBooleanInput("verbose"),
-		group: core.getInput("group") || undefined,
+		group,
 		format: core.getInput("format") || undefined,
 		pathPrefix: core.getInput("path-prefix") || undefined,
 		targetBranch: core.getInput("target-branch") || undefined,
-		scanName: core.getInput("scan-name") || undefined,
+		scanName,
 		scanTag: core.getInput("scan-tag") || undefined,
 		scanType: core.getInput("scan-type") || undefined,
 		failOnVulnerabilities: core.getBooleanInput("fail-on-vulnerabilities"),
