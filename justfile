@@ -1,5 +1,4 @@
-# Use npm from homebrew since the system node doesn't include it
-export PATH := "/opt/homebrew/bin:" + env("PATH")
+# Node is managed by mise — see .mise.toml
 
 # List available recipes
 default:
@@ -7,7 +6,7 @@ default:
 
 # Install dependencies
 install:
-    npm ci --registry https://registry.npmjs.org
+    npm ci
 
 # Run linter
 lint:
