@@ -32483,6 +32483,7 @@ function wrappy (fn, cb) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.generateComment = generateComment;
 exports.generateErrorComment = generateErrorComment;
+exports.formatRate = formatRate;
 /**
  * Generate a markdown PR comment for the given command and CLI response.
  * Returns empty string if no comment should be generated.
@@ -33181,6 +33182,7 @@ exports.buildCliArgs = buildCliArgs;
 exports.runUpload = runUpload;
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
+const comment_js_1 = __nccwpck_require__(2246);
 function buildCliArgs(inputs) {
     const files = inputs.file.split(/\s+/).filter(Boolean);
     const args = ["upload", inputs.command, ...files, "--quiet", "--json"];
@@ -33287,7 +33289,7 @@ function logUploadSummary(command, response, exitCode) {
                     : undefined;
                 if (diff) {
                     const status = diff.passed ? "passed" : "failed";
-                    core.info(`Drape coverage: ${status} — base ${diff.base_coverage_rate}% → head ${diff.head_coverage_rate}% (${diff.coverage_delta}%), ${diff.regressed_lines_count} regressed lines ${url}`);
+                    core.info(`Drape coverage: ${status} — base ${(0, comment_js_1.formatRate)(diff.base_coverage_rate)}% → head ${(0, comment_js_1.formatRate)(diff.head_coverage_rate)}% (${(0, comment_js_1.formatRate)(diff.coverage_delta)}%), ${diff.regressed_lines_count} regressed lines ${url}`);
                 }
                 else {
                     const cr = r;

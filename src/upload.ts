@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
+import { formatRate } from "./comment.js";
 import type {
 	ActionInputs,
 	Command,
@@ -127,7 +128,7 @@ function logUploadSummary(
 				if (diff) {
 					const status = diff.passed ? "passed" : "failed";
 					core.info(
-						`Drape coverage: ${status} — base ${diff.base_coverage_rate}% → head ${diff.head_coverage_rate}% (${diff.coverage_delta}%), ${diff.regressed_lines_count} regressed lines ${url}`,
+						`Drape coverage: ${status} — base ${formatRate(diff.base_coverage_rate)}% → head ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%), ${diff.regressed_lines_count} regressed lines ${url}`,
 					);
 				} else {
 					const cr = r as CoverageResult;

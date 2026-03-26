@@ -6,4 +6,5 @@ type Command = "coverage" | "tests" | "scan" | "lint";
  */
 export declare function generateComment(command: Command, exitCode: number, response: DrapeCliResponse, stderr: string): string;
 export declare function generateErrorComment(command: Command, exitCode: number, stderr: string): string;
+export declare function formatRate(value: string): string;
 export {};

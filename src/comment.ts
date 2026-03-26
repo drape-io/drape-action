@@ -476,7 +476,7 @@ function footer(exitCode: number, drapeUrl: string): string {
 	return `> **Result: ${label}** · *drape-io/drape-action*`;
 }
 
-function formatRate(value: string): string {
+export function formatRate(value: string): string {
 	const num = Number.parseFloat(value);
 	if (Number.isNaN(num)) return value;
 	// Drop unnecessary trailing zeros: "84.50" → "84.5", "84.00" → "84"
