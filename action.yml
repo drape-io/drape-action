@@ -171,6 +171,8 @@ runs:
     - name: Propagate CLI exit code
       if: steps.upload.outputs.exit-code != '0'
       shell: bash
+      env:
+        CLI_EXIT_CODE: ${{ steps.upload.outputs.exit-code }}
       run: |
-        echo "::error::Drape CLI exited with code ${{ steps.upload.outputs.exit-code }}"
-        exit ${{ steps.upload.outputs.exit-code }}
+        echo "::error::Drape CLI exited with code ${CLI_EXIT_CODE}"
+        exit "${CLI_EXIT_CODE}"
