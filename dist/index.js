@@ -33233,7 +33233,7 @@ async function runUpload(inputs) {
         env.DRAPE_REPO = inputs.repo;
     const result = await exec.getExecOutput("drape", args, {
         ignoreReturnCode: true,
-        silent: true,
+        silent: !inputs.verbose,
         env,
     });
     if (result.stderr) {

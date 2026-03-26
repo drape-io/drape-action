@@ -66,7 +66,7 @@ export async function runUpload(
 
 	const result = await exec.getExecOutput("drape", args, {
 		ignoreReturnCode: true,
-		silent: true,
+		silent: !inputs.verbose,
 		env,
 	});
 
