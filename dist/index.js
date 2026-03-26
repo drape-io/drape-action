@@ -32828,7 +32828,7 @@ function getInputs() {
     return {
         command: command,
         file: core.getInput("file", { required: true }),
-        token: core.getInput("token", { required: true }),
+        apiKey: core.getInput("api-key", { required: true }),
         org: core.getInput("org") || undefined,
         repo: core.getInput("repo") || undefined,
         cliVersion: core.getInput("cli-version") || "latest",
@@ -33213,9 +33213,19 @@ function buildCliArgs(inputs) {
 }
 async function runUpload(inputs) {
     const args = buildCliArgs(inputs);
+    const env = {
+        ...process.env,
+        DRAPE_API_KEY: inputs.apiKey,
+        DRAPE_API_URL: inputs.apiUrl,
+    };
+    if (inputs.org)
+        env.DRAPE_ORG = inputs.org;
+    if (inputs.repo)
+        env.DRAPE_REPO = inputs.repo;
     const result = await exec.getExecOutput("drape", args, {
         ignoreReturnCode: true,
         silent: false,
+        env,
     });
     if (result.stderr) {
         core.info(result.stderr);

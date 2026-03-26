@@ -13,8 +13,8 @@ inputs:
   file:
     description: 'File path or glob pattern to upload'
     required: true
-  token:
-    description: 'Drape API token'
+  api-key:
+    description: 'Drape API key'
     required: true
 
   # Organization/repo (auto-detected from github context)

@@ -99,7 +99,7 @@ export type Command = "coverage" | "tests" | "scan" | "lint";
 export interface ActionInputs {
     command: Command;
     file: string;
-    token: string;
+    apiKey: string;
     org?: string;
     repo?: string;
     cliVersion: string;
