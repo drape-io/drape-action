@@ -33178,7 +33178,8 @@ exports.runUpload = runUpload;
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
 function buildCliArgs(inputs) {
-    const args = ["upload", inputs.command, inputs.file, "--quiet"];
+    const files = inputs.file.split(/\s+/).filter(Boolean);
+    const args = ["upload", inputs.command, ...files, "--quiet"];
     args.push(`--wait=${inputs.wait}`);
     args.push("--timeout", String(inputs.timeout));
     if (inputs.verbose) {

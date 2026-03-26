@@ -12,7 +12,8 @@ import type {
 } from "./types.js";
 
 export function buildCliArgs(inputs: ActionInputs): string[] {
-	const args = ["upload", inputs.command, inputs.file, "--quiet"];
+	const files = inputs.file.split(/\s+/).filter(Boolean);
+	const args = ["upload", inputs.command, ...files, "--quiet"];
 
 	args.push(`--wait=${inputs.wait}`);
 	args.push("--timeout", String(inputs.timeout));

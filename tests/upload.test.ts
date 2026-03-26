@@ -112,6 +112,28 @@ describe("buildCliArgs", () => {
 		expect(args).toContain("high");
 	});
 
+	it("splits multiple files into separate positional args", () => {
+		const args = buildCliArgs(makeInputs({ file: "unit.xml integration.xml" }));
+		expect(args).toEqual([
+			"upload",
+			"coverage",
+			"unit.xml",
+			"integration.xml",
+			"--quiet",
+			"--wait=true",
+			"--timeout",
+			"120",
+		]);
+	});
+
+	it("handles newline-separated files", () => {
+		const args = buildCliArgs(
+			makeInputs({ file: "unit.xml\nintegration.xml" }),
+		);
+		expect(args[2]).toBe("unit.xml");
+		expect(args[3]).toBe("integration.xml");
+	});
+
 	it("adds lint format flag", () => {
 		const args = buildCliArgs(
 			makeInputs({ command: "lint", file: "lint.sarif", format: "sarif" }),
