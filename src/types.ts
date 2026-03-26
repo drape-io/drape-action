@@ -1,6 +1,8 @@
 // Top-level CLI response
 export interface DrapeCliResponse {
 	uploads: Upload[];
+	files_matched?: number;
+	files_uploaded?: number;
 }
 
 export interface Upload {

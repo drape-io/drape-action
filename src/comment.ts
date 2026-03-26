@@ -36,7 +36,11 @@ export function generateComment(
 
 	switch (command) {
 		case "coverage":
-			return generateCoverageComment(uploads, exitCode);
+			return generateCoverageComment(
+				uploads,
+				exitCode,
+				response.files_uploaded,
+			);
 		case "tests":
 			return generateTestsComment(uploads, exitCode);
 		case "scan":
@@ -48,7 +52,12 @@ export function generateComment(
 
 // --- Coverage ---
 
-function generateCoverageComment(uploads: Upload[], exitCode: number): string {
+function generateCoverageComment(
+	uploads: Upload[],
+	exitCode: number,
+	filesUploaded?: number,
+): string {
+	// For batch uploads, the CLI attaches the merged result to uploads[0]
 	const result = uploads[0]?.result as CoverageResult | null;
 	if (!result) {
 		return lines(
@@ -60,7 +69,11 @@ function generateCoverageComment(uploads: Upload[], exitCode: number): string {
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const diff = result.coverage_diff;
-	const out: string[] = ["## Drape: Coverage Report", ""];
+	const header =
+		filesUploaded != null && filesUploaded > 1
+			? `## Drape: Coverage Report (${filesUploaded} files merged)`
+			: "## Drape: Coverage Report";
+	const out: string[] = [header, ""];
 
 	if (diff) {
 		out.push(coverageSummaryLine(diff));

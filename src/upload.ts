@@ -13,7 +13,7 @@ import type {
 
 export function buildCliArgs(inputs: ActionInputs): string[] {
 	const files = inputs.file.split(/\s+/).filter(Boolean);
-	const args = ["upload", inputs.command, ...files, "--quiet"];
+	const args = ["upload", inputs.command, ...files, "--quiet", "--json"];
 
 	args.push(`--wait=${inputs.wait}`);
 	args.push("--timeout", String(inputs.timeout));
@@ -98,6 +98,12 @@ function logUploadSummary(
 	response: DrapeCliResponse,
 	exitCode: number,
 ): void {
+	if (response.files_matched != null) {
+		core.info(
+			`Drape ${command}: ${response.files_uploaded ?? 0}/${response.files_matched} file(s) uploaded`,
+		);
+	}
+
 	const uploads = response.uploads ?? [];
 	if (uploads.length === 0) {
 		core.info(`Drape ${command}: no uploads (exit ${exitCode})`);
@@ -106,37 +112,40 @@ function logUploadSummary(
 
 	for (const upload of uploads) {
 		const url = upload.drape_url ?? "";
-		if (!upload.result) {
+		const r = upload.result;
+		if (!r) {
 			core.info(`Drape ${command}: uploaded (no result yet) ${url}`);
 			continue;
 		}
 
 		switch (command) {
 			case "coverage": {
-				const r = upload.result as CoverageResult;
-				const diff = r.coverage_diff;
+				const diff =
+					"coverage_diff" in r
+						? (r as CoverageResult).coverage_diff
+						: undefined;
 				if (diff) {
 					const status = diff.passed ? "passed" : "failed";
 					core.info(
 						`Drape coverage: ${status} — base ${diff.base_coverage_rate}% → head ${diff.head_coverage_rate}% (${diff.coverage_delta}%), ${diff.regressed_lines_count} regressed lines ${url}`,
 					);
 				} else {
+					const cr = r as CoverageResult;
 					core.info(
-						`Drape coverage: ${r.coverage_rate ?? "?"}% across ${r.file_count ?? "?"} files ${url}`,
+						`Drape coverage: ${cr.coverage_rate ?? "?"}% across ${cr.file_count ?? "?"} files ${url}`,
 					);
 				}
 				break;
 			}
 			case "tests": {
-				const r = upload.result as TestsResult;
+				const tr = r as TestsResult;
 				core.info(
-					`Drape tests: ${r.tests_ingested} ingested, ${r.failed_count} failed, ${r.suppressed_count} suppressed, ${r.unsuppressed_failure_count} unsuppressed ${url}`,
+					`Drape tests: ${tr.tests_ingested ?? 0} ingested, ${tr.failed_count ?? 0} failed, ${tr.suppressed_count ?? 0} suppressed, ${tr.unsuppressed_failure_count ?? 0} unsuppressed ${url}`,
 				);
 				break;
 			}
 			case "scan": {
-				const r = upload.result as ScanResult;
-				const diff = r.scan_diff;
+				const diff = "scan_diff" in r ? (r as ScanResult).scan_diff : undefined;
 				if (diff) {
 					const totalNew =
 						diff.new_critical_count +
@@ -147,22 +156,25 @@ function logUploadSummary(
 						`Drape scan: ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
 					);
 				} else {
+					const sr = r as ScanResult;
 					core.info(
-						`Drape scan: ${r.total_vulnerabilities ?? 0} total vulnerabilities ${url}`,
+						`Drape scan: ${sr.total_vulnerabilities ?? 0} total vulnerabilities ${url}`,
 					);
 				}
 				break;
 			}
 			case "lint": {
-				const r = upload.result as LintResult;
-				const diff = r.lint_diff;
+				const diff = "lint_diff" in r ? (r as LintResult).lint_diff : undefined;
 				if (diff) {
 					const status = diff.passed ? "passed" : "failed";
 					core.info(
 						`Drape lint: ${status} — ${diff.new_violation_count} new, ${diff.resolved_violation_count} resolved ${url}`,
 					);
 				} else {
-					core.info(`Drape lint: ${r.total_violations ?? 0} violations ${url}`);
+					const lr = r as LintResult;
+					core.info(
+						`Drape lint: ${lr.total_violations ?? 0} violations ${url}`,
+					);
 				}
 				break;
 			}

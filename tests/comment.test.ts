@@ -191,6 +191,45 @@ describe("generateComment", () => {
 			expect(body).not.toContain("-54.980000000000004");
 		});
 
+		it("shows merged file count in header for batch uploads", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/123",
+						result: {
+							coverage_rate: "85.5",
+							file_count: "100",
+						},
+					},
+				],
+				files_matched: 3,
+				files_uploaded: 3,
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			expect(body).toContain("## Drape: Coverage Report (3 files merged)");
+		});
+
+		it("does not show merged count for single file", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							coverage_rate: "85.5",
+							file_count: "100",
+						},
+					},
+				],
+				files_matched: 1,
+				files_uploaded: 1,
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			expect(body).toContain("## Drape: Coverage Report");
+			expect(body).not.toContain("files merged");
+		});
+
 		it("shows placeholder when result is null", () => {
 			const response: DrapeCliResponse = {
 				uploads: [{ drape_url: "", result: null }],

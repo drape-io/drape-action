@@ -32498,7 +32498,7 @@ function generateComment(command, exitCode, response, stderr) {
     }
     switch (command) {
         case "coverage":
-            return generateCoverageComment(uploads, exitCode);
+            return generateCoverageComment(uploads, exitCode, response.files_uploaded);
         case "tests":
             return generateTestsComment(uploads, exitCode);
         case "scan":
@@ -32508,14 +32508,18 @@ function generateComment(command, exitCode, response, stderr) {
     }
 }
 // --- Coverage ---
-function generateCoverageComment(uploads, exitCode) {
+function generateCoverageComment(uploads, exitCode, filesUploaded) {
+    // For batch uploads, the CLI attaches the merged result to uploads[0]
     const result = uploads[0]?.result;
     if (!result) {
         return lines("## Drape: Coverage Report", "", "> Upload completed but no result data available yet.");
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
     const diff = result.coverage_diff;
-    const out = ["## Drape: Coverage Report", ""];
+    const header = filesUploaded != null && filesUploaded > 1
+        ? `## Drape: Coverage Report (${filesUploaded} files merged)`
+        : "## Drape: Coverage Report";
+    const out = [header, ""];
     if (diff) {
         out.push(coverageSummaryLine(diff));
         out.push("");
@@ -33179,7 +33183,7 @@ const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
 function buildCliArgs(inputs) {
     const files = inputs.file.split(/\s+/).filter(Boolean);
-    const args = ["upload", inputs.command, ...files, "--quiet"];
+    const args = ["upload", inputs.command, ...files, "--quiet", "--json"];
     args.push(`--wait=${inputs.wait}`);
     args.push("--timeout", String(inputs.timeout));
     if (inputs.verbose) {
@@ -33261,6 +33265,9 @@ async function runUpload(inputs) {
     };
 }
 function logUploadSummary(command, response, exitCode) {
+    if (response.files_matched != null) {
+        core.info(`Drape ${command}: ${response.files_uploaded ?? 0}/${response.files_matched} file(s) uploaded`);
+    }
     const uploads = response.uploads ?? [];
     if (uploads.length === 0) {
         core.info(`Drape ${command}: no uploads (exit ${exitCode})`);
@@ -33268,31 +33275,33 @@ function logUploadSummary(command, response, exitCode) {
     }
     for (const upload of uploads) {
         const url = upload.drape_url ?? "";
-        if (!upload.result) {
+        const r = upload.result;
+        if (!r) {
             core.info(`Drape ${command}: uploaded (no result yet) ${url}`);
             continue;
         }
         switch (command) {
             case "coverage": {
-                const r = upload.result;
-                const diff = r.coverage_diff;
+                const diff = "coverage_diff" in r
+                    ? r.coverage_diff
+                    : undefined;
                 if (diff) {
                     const status = diff.passed ? "passed" : "failed";
                     core.info(`Drape coverage: ${status} — base ${diff.base_coverage_rate}% → head ${diff.head_coverage_rate}% (${diff.coverage_delta}%), ${diff.regressed_lines_count} regressed lines ${url}`);
                 }
                 else {
-                    core.info(`Drape coverage: ${r.coverage_rate ?? "?"}% across ${r.file_count ?? "?"} files ${url}`);
+                    const cr = r;
+                    core.info(`Drape coverage: ${cr.coverage_rate ?? "?"}% across ${cr.file_count ?? "?"} files ${url}`);
                 }
                 break;
             }
             case "tests": {
-                const r = upload.result;
-                core.info(`Drape tests: ${r.tests_ingested} ingested, ${r.failed_count} failed, ${r.suppressed_count} suppressed, ${r.unsuppressed_failure_count} unsuppressed ${url}`);
+                const tr = r;
+                core.info(`Drape tests: ${tr.tests_ingested ?? 0} ingested, ${tr.failed_count ?? 0} failed, ${tr.suppressed_count ?? 0} suppressed, ${tr.unsuppressed_failure_count ?? 0} unsuppressed ${url}`);
                 break;
             }
             case "scan": {
-                const r = upload.result;
-                const diff = r.scan_diff;
+                const diff = "scan_diff" in r ? r.scan_diff : undefined;
                 if (diff) {
                     const totalNew = diff.new_critical_count +
                         diff.new_high_count +
@@ -33301,19 +33310,20 @@ function logUploadSummary(command, response, exitCode) {
                     core.info(`Drape scan: ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`);
                 }
                 else {
-                    core.info(`Drape scan: ${r.total_vulnerabilities ?? 0} total vulnerabilities ${url}`);
+                    const sr = r;
+                    core.info(`Drape scan: ${sr.total_vulnerabilities ?? 0} total vulnerabilities ${url}`);
                 }
                 break;
             }
             case "lint": {
-                const r = upload.result;
-                const diff = r.lint_diff;
+                const diff = "lint_diff" in r ? r.lint_diff : undefined;
                 if (diff) {
                     const status = diff.passed ? "passed" : "failed";
                     core.info(`Drape lint: ${status} — ${diff.new_violation_count} new, ${diff.resolved_violation_count} resolved ${url}`);
                 }
                 else {
-                    core.info(`Drape lint: ${r.total_violations ?? 0} violations ${url}`);
+                    const lr = r;
+                    core.info(`Drape lint: ${lr.total_violations ?? 0} violations ${url}`);
                 }
                 break;
             }
