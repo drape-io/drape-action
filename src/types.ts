@@ -34,7 +34,7 @@ export interface CoverageDiff {
 	new_lines_covered: number;
 	new_code_coverage_rate: string;
 	regressed_lines_count: number;
-	regressed_files: RegressedFile[];
+	regressed_files: RegressedFile[] | null;
 }
 
 export interface RegressedFile {
@@ -114,7 +114,7 @@ export interface LintDiff {
 	new_violation_count: number;
 	resolved_violation_count: number;
 	suppressed_violation_count: number;
-	new_violations: LintViolation[];
+	new_violations: LintViolation[] | null;
 }
 
 export interface LintViolation {

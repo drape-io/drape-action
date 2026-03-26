@@ -33,8 +33,8 @@ describe("generateComment", () => {
 			expect(body).toContain(":white_check_mark:");
 			expect(body).toContain("no regressions detected");
 			expect(body).toContain("85.5%");
-			expect(body).toContain("84.0%");
-			expect(body).toContain("+1.5%");
+			expect(body).toContain("84%");
+			expect(body).toContain("1.5%");
 			expect(body).toContain("18/20 lines");
 			expect(body).toContain("Result: Passed");
 			expect(body).toContain("View full report in Drape");
@@ -131,6 +131,64 @@ describe("generateComment", () => {
 
 			expect(body).toContain("75.0%");
 			expect(body).toContain("42");
+		});
+
+		it("handles null regressed_files without crashing", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/123",
+						result: {
+							coverage_diff: {
+								passed: true,
+								head_coverage_rate: "85.5",
+								base_coverage_rate: "84.0",
+								coverage_delta: "+1.5",
+								new_lines_total: 20,
+								new_lines_covered: 18,
+								new_code_coverage_rate: "90.0",
+								regressed_lines_count: 0,
+								regressed_files: null,
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			expect(body).toContain("## Drape: Coverage Report");
+			expect(body).not.toContain("Regressed files");
+		});
+
+		it("rounds coverage rates to remove floating point noise", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							coverage_diff: {
+								passed: false,
+								failure_reasons: ["regression"],
+								head_coverage_rate: "29.609999999999996",
+								base_coverage_rate: "84.59",
+								coverage_delta: "-54.980000000000004",
+								new_lines_total: 1,
+								new_lines_covered: 0,
+								new_code_coverage_rate: "0.0",
+								regressed_lines_count: 14229,
+								regressed_files: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 1, response, "");
+
+			expect(body).toContain("29.61%");
+			expect(body).toContain("84.59%");
+			expect(body).toContain("-54.98%");
+			expect(body).not.toContain("29.609999999999996");
+			expect(body).not.toContain("-54.980000000000004");
 		});
 
 		it("shows placeholder when result is null", () => {
@@ -524,6 +582,31 @@ describe("generateComment", () => {
 
 			expect(body).toContain(":white_check_mark:");
 			expect(body).toContain("Lint check passed");
+		});
+
+		it("handles null new_violations without crashing", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							lint_diff: {
+								passed: true,
+								base_violation_count: 0,
+								head_violation_count: 0,
+								new_violation_count: 0,
+								resolved_violation_count: 0,
+								suppressed_violation_count: 0,
+								new_violations: null,
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("lint", 0, response, "");
+
+			expect(body).toContain("Lint check passed");
+			expect(body).not.toContain("New violations");
 		});
 
 		it("shows summary when no diff data", () => {

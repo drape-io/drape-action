@@ -2,7 +2,12 @@ import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import type {
 	ActionInputs,
+	Command,
+	CoverageResult,
 	DrapeCliResponse,
+	LintResult,
+	ScanResult,
+	TestsResult,
 	UploadExecResult,
 } from "./types.js";
 
@@ -61,7 +66,7 @@ export async function runUpload(
 
 	const result = await exec.getExecOutput("drape", args, {
 		ignoreReturnCode: true,
-		silent: false,
+		silent: true,
 		env,
 	});
 
@@ -77,10 +82,89 @@ export async function runUpload(
 		resultJson = { uploads: [] };
 	}
 
+	logUploadSummary(inputs.command, resultJson, result.exitCode);
+
 	return {
 		exitCode: result.exitCode,
 		resultJson,
 		passed: result.exitCode === 0,
 		stderr: result.stderr,
 	};
+}
+
+function logUploadSummary(
+	command: Command,
+	response: DrapeCliResponse,
+	exitCode: number,
+): void {
+	const uploads = response.uploads ?? [];
+	if (uploads.length === 0) {
+		core.info(`Drape ${command}: no uploads (exit ${exitCode})`);
+		return;
+	}
+
+	for (const upload of uploads) {
+		const url = upload.drape_url ?? "";
+		if (!upload.result) {
+			core.info(`Drape ${command}: uploaded (no result yet) ${url}`);
+			continue;
+		}
+
+		switch (command) {
+			case "coverage": {
+				const r = upload.result as CoverageResult;
+				const diff = r.coverage_diff;
+				if (diff) {
+					const status = diff.passed ? "passed" : "failed";
+					core.info(
+						`Drape coverage: ${status} — base ${diff.base_coverage_rate}% → head ${diff.head_coverage_rate}% (${diff.coverage_delta}%), ${diff.regressed_lines_count} regressed lines ${url}`,
+					);
+				} else {
+					core.info(
+						`Drape coverage: ${r.coverage_rate ?? "?"}% across ${r.file_count ?? "?"} files ${url}`,
+					);
+				}
+				break;
+			}
+			case "tests": {
+				const r = upload.result as TestsResult;
+				core.info(
+					`Drape tests: ${r.tests_ingested} ingested, ${r.failed_count} failed, ${r.suppressed_count} suppressed, ${r.unsuppressed_failure_count} unsuppressed ${url}`,
+				);
+				break;
+			}
+			case "scan": {
+				const r = upload.result as ScanResult;
+				const diff = r.scan_diff;
+				if (diff) {
+					const totalNew =
+						diff.new_critical_count +
+						diff.new_high_count +
+						diff.new_medium_count +
+						diff.new_low_count;
+					core.info(
+						`Drape scan: ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
+					);
+				} else {
+					core.info(
+						`Drape scan: ${r.total_vulnerabilities ?? 0} total vulnerabilities ${url}`,
+					);
+				}
+				break;
+			}
+			case "lint": {
+				const r = upload.result as LintResult;
+				const diff = r.lint_diff;
+				if (diff) {
+					const status = diff.passed ? "passed" : "failed";
+					core.info(
+						`Drape lint: ${status} — ${diff.new_violation_count} new, ${diff.resolved_violation_count} resolved ${url}`,
+					);
+				} else {
+					core.info(`Drape lint: ${r.total_violations ?? 0} violations ${url}`);
+				}
+				break;
+			}
+		}
+	}
 }

@@ -68,25 +68,26 @@ function generateCoverageComment(uploads: Upload[], exitCode: number): string {
 
 		out.push(
 			"```diff",
-			`- Base coverage:     ${diff.base_coverage_rate}%`,
-			`+ Head coverage:     ${diff.head_coverage_rate}% (${diff.coverage_delta}%)`,
-			`  New code coverage: ${diff.new_code_coverage_rate}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`,
+			`- Base coverage:     ${formatRate(diff.base_coverage_rate)}%`,
+			`+ Head coverage:     ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`,
+			`  New code coverage: ${formatRate(diff.new_code_coverage_rate)}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`,
 		);
 		if (diff.regressed_lines_count > 0) {
 			out.push(`! Regressed lines:   ${diff.regressed_lines_count}`);
 		}
 		out.push("```");
 
-		if (diff.regressed_files.length > 0) {
+		const regressedFiles = diff.regressed_files ?? [];
+		if (regressedFiles.length > 0) {
 			out.push("");
 			out.push(
 				"<details>",
-				`<summary>Regressed files (${diff.regressed_files.length} file(s), ${diff.regressed_lines_count} lines)</summary>`,
+				`<summary>Regressed files (${regressedFiles.length} file(s), ${diff.regressed_lines_count} lines)</summary>`,
 				"",
 				"| File | Lines | Ranges |",
 				"|------|-------|--------|",
 			);
-			for (const f of diff.regressed_files) {
+			for (const f of regressedFiles) {
 				const ranges = (f.regressed_line_ranges ?? [])
 					.map(([start, end]) => `L${start}-${end}`)
 					.join(", ");
@@ -370,16 +371,17 @@ function generateLintComment(uploads: Upload[], exitCode: number): string {
 		}
 		out.push("```");
 
-		if (diff.new_violations.length > 0) {
+		const newViolations = diff.new_violations ?? [];
+		if (newViolations.length > 0) {
 			out.push(
 				"",
 				"<details>",
-				`<summary>New violations (${diff.new_violations.length})</summary>`,
+				`<summary>New violations (${newViolations.length})</summary>`,
 				"",
 				"| File | Line | Rule | Severity | Message |",
 				"|------|------|------|----------|---------|",
 			);
-			for (const v of diff.new_violations) {
+			for (const v of newViolations) {
 				out.push(
 					`| \`${v.file_path}\` | ${v.line} | ${v.rule_id} | ${v.severity} | ${v.message} |`,
 				);
@@ -459,6 +461,13 @@ function footer(exitCode: number, drapeUrl: string): string {
 		return `> [View full report in Drape](${drapeUrl}) · **Result: ${label}** · *drape-io/drape-action*`;
 	}
 	return `> **Result: ${label}** · *drape-io/drape-action*`;
+}
+
+function formatRate(value: string): string {
+	const num = Number.parseFloat(value);
+	if (Number.isNaN(num)) return value;
+	// Drop unnecessary trailing zeros: "84.50" → "84.5", "84.00" → "84"
+	return num.toFixed(2).replace(/\.?0+$/, "");
 }
 
 function lines(...parts: string[]): string {
