@@ -31,7 +31,7 @@ if [ -f "${BINARY}" ]; then
 fi
 
 # Download tarball and checksums
-TARBALL="drape_${VERSION}_${OS}_${ARCH}.tar.gz"
+TARBALL="drape_${OS}_${ARCH}.tar.gz"
 BASE_URL="https://github.com/drape-io/drape-cli/releases/download/v${VERSION}"
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "${TMPDIR}"' EXIT
