@@ -41,10 +41,7 @@ const comments = [
 						result: {
 							coverage_diff: {
 								passed: false,
-								failure_reasons: [
-									"coverage decreased",
-									"new code below threshold",
-								],
+								failure_reasons: ["12 regressed lines detected"],
 								head_coverage_rate: "80.0",
 								base_coverage_rate: "84.0",
 								coverage_delta: "-4.0",
@@ -86,9 +83,10 @@ const comments = [
 						drape_url: "https://app.drape.io/r/tests-789",
 						result: {
 							tests_ingested: 342,
-							failed_count: 3,
+							failed_count: 5,
 							suppressed_count: 3,
 							unsuppressed_failure_count: 0,
+							flaky_count: 2,
 						},
 					},
 				],
@@ -110,6 +108,7 @@ const comments = [
 							failed_count: 5,
 							suppressed_count: 2,
 							unsuppressed_failure_count: 3,
+							flaky_count: 0,
 						},
 					},
 				],

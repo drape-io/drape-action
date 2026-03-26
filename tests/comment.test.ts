@@ -6,7 +6,7 @@ describe("generateComment", () => {
 	// --- Coverage ---
 
 	describe("coverage", () => {
-		it("generates diff block with passing check", () => {
+		it("generates table with passing check and no regressions", () => {
 			const response: DrapeCliResponse = {
 				uploads: [
 					{
@@ -31,12 +31,11 @@ describe("generateComment", () => {
 
 			expect(body).toContain("## Drape: Coverage Report");
 			expect(body).toContain(":white_check_mark:");
-			expect(body).toContain("Coverage check passed");
-			expect(body).toContain("@@ Coverage Diff @@");
+			expect(body).toContain("no regressions detected");
 			expect(body).toContain("85.5%");
 			expect(body).toContain("84.0%");
 			expect(body).toContain("+1.5%");
-			expect(body).toContain("90.0% (18/20 lines)");
+			expect(body).toContain("18/20 lines");
 			expect(body).toContain("Result: Passed");
 			expect(body).toContain("View full report in Drape");
 		});
@@ -50,8 +49,8 @@ describe("generateComment", () => {
 							coverage_diff: {
 								passed: false,
 								failure_reasons: [
-									"coverage decreased",
-									"new code below threshold",
+									"5 regressed lines detected",
+									"new code coverage below 80%",
 								],
 								head_coverage_rate: "80.0",
 								base_coverage_rate: "84.0",
@@ -76,11 +75,44 @@ describe("generateComment", () => {
 
 			expect(body).toContain(":x:");
 			expect(body).toContain("Coverage check failed");
-			expect(body).toContain("coverage decreased");
+			expect(body).toContain("5 regressed lines detected");
 			expect(body).toContain("Regressed files (1 file(s), 5 lines)");
 			expect(body).toContain("`src/main.go`");
 			expect(body).toContain("L10-15");
 			expect(body).toContain("Result: Failed");
+		});
+
+		it("mentions regressions in summary when passing with regressions", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							coverage_diff: {
+								passed: true,
+								head_coverage_rate: "83.0",
+								base_coverage_rate: "84.0",
+								coverage_delta: "-1.0",
+								new_lines_total: 10,
+								new_lines_covered: 10,
+								new_code_coverage_rate: "100.0",
+								regressed_lines_count: 3,
+								regressed_files: [
+									{
+										file_path: "src/utils.go",
+										regressed_lines: 3,
+										regressed_line_ranges: [[20, 23]],
+									},
+								],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			expect(body).toContain("3 regressed line(s) detected");
+			expect(body).toContain(":white_check_mark:");
 		});
 
 		it("shows overall rate when no diff data", () => {
@@ -99,7 +131,6 @@ describe("generateComment", () => {
 
 			expect(body).toContain("75.0%");
 			expect(body).toContain("42");
-			expect(body).toContain("@@ Coverage @@");
 		});
 
 		it("shows placeholder when result is null", () => {
@@ -125,6 +156,7 @@ describe("generateComment", () => {
 							failed_count: 3,
 							suppressed_count: 3,
 							unsuppressed_failure_count: 0,
+							flaky_count: 0,
 						},
 					},
 				],
@@ -135,7 +167,6 @@ describe("generateComment", () => {
 			expect(body).toContain("All 3 failure(s) are suppressed");
 			expect(body).toContain(":white_check_mark:");
 			expect(body).toContain("150");
-			expect(body).toContain("@@ Test Summary @@");
 		});
 
 		it("shows caution for unsuppressed failures", () => {
@@ -148,6 +179,7 @@ describe("generateComment", () => {
 							failed_count: 2,
 							suppressed_count: 0,
 							unsuppressed_failure_count: 2,
+							flaky_count: 0,
 						},
 					},
 				],
@@ -168,6 +200,7 @@ describe("generateComment", () => {
 							failed_count: 1,
 							suppressed_count: 1,
 							unsuppressed_failure_count: 0,
+							flaky_count: 0,
 						},
 					},
 					{
@@ -177,6 +210,7 @@ describe("generateComment", () => {
 							failed_count: 2,
 							suppressed_count: 2,
 							unsuppressed_failure_count: 0,
+							flaky_count: 0,
 						},
 					},
 				],
@@ -197,6 +231,7 @@ describe("generateComment", () => {
 							failed_count: 0,
 							suppressed_count: 0,
 							unsuppressed_failure_count: 0,
+							flaky_count: 0,
 						},
 					},
 				],
@@ -204,6 +239,49 @@ describe("generateComment", () => {
 			const body = generateComment("tests", 0, response, "");
 
 			expect(body).toContain("All tests passed");
+		});
+
+		it("reports flaky test failures", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/flaky",
+						result: {
+							tests_ingested: 200,
+							failed_count: 4,
+							suppressed_count: 2,
+							unsuppressed_failure_count: 0,
+							flaky_count: 2,
+						},
+					},
+				],
+			};
+			const body = generateComment("tests", 0, response, "");
+
+			expect(body).toContain("2 known flaky test(s) failed");
+			expect(body).toContain("not blocking CI");
+			expect(body).toContain("Flaky | 2");
+		});
+
+		it("does not show flaky row when count is 0", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							tests_ingested: 100,
+							failed_count: 0,
+							suppressed_count: 0,
+							unsuppressed_failure_count: 0,
+							flaky_count: 0,
+						},
+					},
+				],
+			};
+			const body = generateComment("tests", 0, response, "");
+
+			expect(body).not.toContain("Flaky");
+			expect(body).not.toContain("flaky");
 		});
 	});
 
@@ -362,14 +440,13 @@ describe("generateComment", () => {
 
 			expect(body).toContain("15");
 			expect(body).toContain("high");
-			expect(body).toContain("@@ Scan Summary @@");
 		});
 	});
 
 	// --- Lint ---
 
 	describe("lint", () => {
-		it("shows new violations with diff block", () => {
+		it("shows new violations with table", () => {
 			const response: DrapeCliResponse = {
 				uploads: [
 					{
@@ -403,7 +480,6 @@ describe("generateComment", () => {
 			expect(body).toContain(":x:");
 			expect(body).toContain("Lint check failed");
 			expect(body).toContain("new violations introduced");
-			expect(body).toContain("@@ Lint Diff @@");
 			expect(body).toContain("`src/app.py`");
 			expect(body).toContain("E501");
 		});
@@ -448,7 +524,6 @@ describe("generateComment", () => {
 			};
 			const body = generateComment("lint", 0, response, "");
 
-			expect(body).toContain("@@ Lint Summary @@");
 			expect(body).toContain("5");
 		});
 	});
@@ -480,7 +555,7 @@ describe("generateComment", () => {
 			expect(body).not.toContain("Error output");
 		});
 
-		it("returns empty string when no result and exit 0", () => {
+		it("shows placeholder when result is null and exit 0", () => {
 			const response: DrapeCliResponse = {
 				uploads: [{ drape_url: "", result: null }],
 			};

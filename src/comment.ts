@@ -24,7 +24,6 @@ export function generateComment(
 ): string {
 	const uploads = response.uploads ?? [];
 	const hasUploads = uploads.length > 0;
-	const hasResult = uploads.some((u) => u.result != null);
 
 	if (!hasUploads && exitCode !== 0) {
 		return generateErrorComment(command, exitCode, stderr);
@@ -63,9 +62,21 @@ function generateCoverageComment(uploads: Upload[], exitCode: number): string {
 	const out: string[] = ["## Drape: Coverage Report", ""];
 
 	if (diff) {
-		out.push(coverageSummaryLine(diff, exitCode));
+		out.push(coverageSummaryLine(diff));
 		out.push("");
-		out.push(coverageDiffBlock(diff));
+
+		out.push(
+			"| Metric | Base | Head | +/- |",
+			"|--------|------|------|-----|",
+			`| Coverage | ${diff.base_coverage_rate}% | ${diff.head_coverage_rate}% | ${diff.coverage_delta}% |`,
+			`| New code | | ${diff.new_code_coverage_rate}% | ${diff.new_lines_covered}/${diff.new_lines_total} lines |`,
+		);
+
+		if (diff.regressed_lines_count > 0) {
+			out.push(
+				`| **Regressed lines** | | | **${diff.regressed_lines_count}** |`,
+			);
+		}
 
 		if (diff.regressed_files.length > 0) {
 			out.push("");
@@ -88,11 +99,10 @@ function generateCoverageComment(uploads: Upload[], exitCode: number): string {
 		const rate = result.coverage_rate ?? "—";
 		const fileCount = result.file_count ?? "—";
 		out.push(
-			"```",
-			"@@ Coverage @@",
-			`  Coverage    ${rate}%`,
-			`  Files       ${fileCount}`,
-			"```",
+			"| Metric | Value |",
+			"|--------|-------|",
+			`| Coverage | ${rate}% |`,
+			`| Files | ${fileCount} |`,
 		);
 	}
 
@@ -100,33 +110,18 @@ function generateCoverageComment(uploads: Upload[], exitCode: number): string {
 	return lines(...out);
 }
 
-function coverageSummaryLine(diff: CoverageDiff, exitCode: number): string {
+function coverageSummaryLine(diff: CoverageDiff): string {
 	if (diff.passed === false) {
 		const reasons = (diff.failure_reasons ?? []).join(", ");
 		const detail = reasons ? `: ${reasons}` : "";
 		return `> :x: **Coverage check failed**${detail}`;
 	}
-	const icon = exitCode === 0 ? ":white_check_mark:" : ":x:";
-	const verb =
-		Number.parseFloat(diff.coverage_delta) >= 0 ? "increase" : "decrease";
-	return `> ${icon} **Coverage check passed** — coverage will ${verb} by ${diff.coverage_delta}%`;
-}
 
-function coverageDiffBlock(diff: CoverageDiff): string {
-	const base = pad(`${diff.base_coverage_rate}%`, 8);
-	const head = pad(`${diff.head_coverage_rate}%`, 8);
-	const delta = pad(`${diff.coverage_delta}%`, 8);
+	if (diff.regressed_lines_count > 0) {
+		return `> :white_check_mark: **Coverage check passed** — ${diff.regressed_lines_count} regressed line(s) detected`;
+	}
 
-	return [
-		"```",
-		"@@ Coverage Diff @@",
-		"              base      head      +/-",
-		"==============================================",
-		`  Coverage    ${base}  ${head}  ${delta}`,
-		"==============================================",
-		`  New code coverage: ${diff.new_code_coverage_rate}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`,
-		"```",
-	].join("\n");
+	return "> :white_check_mark: **Coverage check passed** — no regressions detected";
 }
 
 // --- Tests ---
@@ -136,6 +131,7 @@ function generateTestsComment(uploads: Upload[], exitCode: number): string {
 	let totalFailed = 0;
 	let totalSuppressed = 0;
 	let totalUnsuppressed = 0;
+	let totalFlaky = 0;
 
 	for (const upload of uploads) {
 		const r = upload.result as TestsResult | null;
@@ -144,31 +140,44 @@ function generateTestsComment(uploads: Upload[], exitCode: number): string {
 		totalFailed += r.failed_count ?? 0;
 		totalSuppressed += r.suppressed_count ?? 0;
 		totalUnsuppressed += r.unsuppressed_failure_count ?? 0;
+		totalFlaky += r.flaky_count ?? 0;
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const out: string[] = ["## Drape: Test Results", ""];
 
-	if (totalFailed > 0 && totalUnsuppressed === 0) {
+	// Summary line
+	if (totalUnsuppressed > 0) {
+		out.push(`> :x: **${totalUnsuppressed} unsuppressed test failure(s)**`);
+	} else if (totalFailed > 0 && totalUnsuppressed === 0) {
 		out.push(
 			`> :white_check_mark: **All ${totalFailed} failure(s) are suppressed** — passing CI`,
 		);
-	} else if (totalUnsuppressed > 0) {
-		out.push(`> :x: **${totalUnsuppressed} unsuppressed test failure(s)**`);
 	} else {
 		out.push("> :white_check_mark: **All tests passed**");
 	}
 
+	// Flaky note
+	if (totalFlaky > 0) {
+		out.push("");
+		out.push(
+			`> :warning: **${totalFlaky} known flaky test(s) failed** — these are tracked but not blocking CI`,
+		);
+	}
+
 	out.push("");
+
 	out.push(
-		"```",
-		"@@ Test Summary @@",
-		`  Tests ingested          ${totalIngested}`,
-		`  Failed                  ${totalFailed}`,
-		`  Suppressed              ${totalSuppressed}`,
-		`  Unsuppressed            ${totalUnsuppressed}`,
-		"```",
+		"| Metric | Count |",
+		"|--------|-------|",
+		`| Tests ingested | ${totalIngested} |`,
+		`| Failed | ${totalFailed} |`,
+		`| Suppressed | ${totalSuppressed} |`,
+		`| Unsuppressed | ${totalUnsuppressed} |`,
 	);
+	if (totalFlaky > 0) {
+		out.push(`| Flaky | ${totalFlaky} |`);
+	}
 
 	out.push("", footer(exitCode, drapeUrl));
 	return lines(...out);
@@ -233,17 +242,13 @@ function generateScanComment(uploads: Upload[], exitCode: number): string {
 		out.push("");
 
 		out.push(
-			"```",
-			"@@ Vulnerability Diff @@",
-			"  Severity    New   Suppressed   Unchanged",
-			"=============================================",
-			`  Critical    ${pad(String(newCritical), 5)} ${pad(String(suppressedTotal > 0 ? "—" : "—"), 12)} ${pad("—", 9)}`,
-			`  High        ${pad(String(newHigh), 5)} ${pad("—", 12)} ${pad("—", 9)}`,
-			`  Medium      ${pad(String(newMedium), 5)} ${pad("—", 12)} ${pad("—", 9)}`,
-			`  Low         ${pad(String(newLow), 5)} ${pad("—", 12)} ${pad("—", 9)}`,
-			"=============================================",
-			`  Total       ${pad(String(totalNew), 5)} ${pad(String(suppressedTotal), 12)} ${pad(String(unchangedTotal), 9)}`,
-			"```",
+			"| Severity | New | Suppressed | Unchanged |",
+			"|----------|-----|------------|-----------|",
+			`| Critical | ${newCritical} | — | — |`,
+			`| High | ${newHigh} | — | — |`,
+			`| Medium | ${newMedium} | — | — |`,
+			`| Low | ${newLow} | — | — |`,
+			`| **Total** | **${newCritical + newHigh + newMedium + newLow}** | **${suppressedTotal}** | **${unchangedTotal}** |`,
 		);
 
 		if (allNewCves.length > 0) {
@@ -303,11 +308,10 @@ function generateScanComment(uploads: Upload[], exitCode: number): string {
 			r?.unsuppressed_highest_severity ?? r?.highest_severity ?? "none";
 
 		out.push(
-			"```",
-			"@@ Scan Summary @@",
-			`  Total vulnerabilities    ${totalVulns}`,
-			`  Highest severity         ${highest}`,
-			"```",
+			"| Metric | Value |",
+			"|--------|-------|",
+			`| Total vulnerabilities | ${totalVulns} |`,
+			`| Highest severity | ${highest} |`,
 		);
 	}
 
@@ -332,9 +336,19 @@ function generateLintComment(uploads: Upload[], exitCode: number): string {
 	const out: string[] = ["## Drape: Lint Report", ""];
 
 	if (diff) {
-		out.push(lintSummaryLine(diff, exitCode));
+		out.push(lintSummaryLine(diff));
 		out.push("");
-		out.push(lintDiffBlock(diff));
+
+		const delta = diff.head_violation_count - diff.base_violation_count;
+		const deltaStr = `${delta >= 0 ? "+" : ""}${delta}`;
+
+		out.push(
+			"| Metric | Base | Head | +/- |",
+			"|--------|------|------|-----|",
+			`| Violations | ${diff.base_violation_count} | ${diff.head_violation_count} | ${deltaStr} |`,
+			`| New | | ${diff.new_violation_count} | |`,
+			`| Resolved | | ${diff.resolved_violation_count} | |`,
+		);
 
 		if (diff.new_violations.length > 0) {
 			out.push(
@@ -358,12 +372,11 @@ function generateLintComment(uploads: Upload[], exitCode: number): string {
 		const warningCount = result.warning_count ?? 0;
 
 		out.push(
-			"```",
-			"@@ Lint Summary @@",
-			`  Total violations    ${totalViolations}`,
-			`  Errors              ${errorCount}`,
-			`  Warnings            ${warningCount}`,
-			"```",
+			"| Metric | Value |",
+			"|--------|-------|",
+			`| Total violations | ${totalViolations} |`,
+			`| Errors | ${errorCount} |`,
+			`| Warnings | ${warningCount} |`,
 		);
 	}
 
@@ -371,32 +384,13 @@ function generateLintComment(uploads: Upload[], exitCode: number): string {
 	return lines(...out);
 }
 
-function lintSummaryLine(diff: LintDiff, exitCode: number): string {
+function lintSummaryLine(diff: LintDiff): string {
 	if (diff.passed === false) {
 		const reasons = (diff.failure_reasons ?? []).join(", ");
 		const detail = reasons ? ` — ${reasons}` : "";
 		return `> :x: **Lint check failed**${detail}`;
 	}
-	const icon = exitCode === 0 ? ":white_check_mark:" : ":x:";
-	return `> ${icon} **Lint check passed**`;
-}
-
-function lintDiffBlock(diff: LintDiff): string {
-	const base = pad(String(diff.base_violation_count), 8);
-	const head = pad(String(diff.head_violation_count), 8);
-	const delta = diff.head_violation_count - diff.base_violation_count;
-	const deltaStr = pad((delta >= 0 ? "+" : "") + String(delta), 8);
-
-	return [
-		"```",
-		"@@ Lint Diff @@",
-		"              base      head      +/-",
-		"==============================================",
-		`  Violations  ${base}  ${head}  ${deltaStr}`,
-		`  New         ${pad("—", 8)}  ${pad(String(diff.new_violation_count), 8)}  ${pad("—", 8)}`,
-		`  Resolved    ${pad("—", 8)}  ${pad(String(diff.resolved_violation_count), 8)}  ${pad("—", 8)}`,
-		"```",
-	].join("\n");
+	return "> :white_check_mark: **Lint check passed**";
 }
 
 // --- Error ---
@@ -449,8 +443,4 @@ function footer(exitCode: number, drapeUrl: string): string {
 
 function lines(...parts: string[]): string {
 	return parts.join("\n");
-}
-
-function pad(s: string, width: number): string {
-	return s.padStart(width);
 }

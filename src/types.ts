@@ -50,6 +50,7 @@ export interface TestsResult {
 	failed_count: number;
 	suppressed_count: number;
 	unsuppressed_failure_count: number;
+	flaky_count: number;
 }
 
 // --- Scan ---
