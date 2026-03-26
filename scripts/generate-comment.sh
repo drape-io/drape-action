@@ -5,14 +5,23 @@ set -euo pipefail
 # Reads: INPUT_COMMAND, RESULT_JSON, EXIT_CODE
 # Sets: body output via GITHUB_OUTPUT
 
+IS_ERROR="false"
 if [ -z "${RESULT_JSON:-}" ] || [ "${RESULT_JSON}" = "{}" ]; then
-  echo "::warning::No JSON result available for comment generation"
-  exit 0
+  if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+    # CLI failed without producing JSON — generate an error comment
+    IS_ERROR="true"
+  else
+    echo "::warning::No JSON result available for comment generation"
+    exit 0
+  fi
 fi
 
 # Extract the first upload's result (single-file commands: coverage, lint)
 # For multi-file commands (tests, scan), we aggregate across uploads.
-UPLOADS_COUNT=$(echo "${RESULT_JSON}" | jq '.uploads | length')
+UPLOADS_COUNT=0
+if [ "${IS_ERROR}" = "false" ]; then
+  UPLOADS_COUNT=$(echo "${RESULT_JSON}" | jq '.uploads | length')
+fi
 
 generate_coverage_comment() {
   local result
@@ -396,20 +405,57 @@ generate_lint_comment() {
   echo "> *drape-io/drape-action*"
 }
 
+generate_error_comment() {
+  local title
+  case "${INPUT_COMMAND}" in
+    coverage) title="Coverage Report" ;;
+    tests)    title="Test Results" ;;
+    scan)     title="Security Scan" ;;
+    lint)     title="Lint Report" ;;
+    *)        title="Drape Upload" ;;
+  esac
+
+  echo "## ${title}"
+  echo ""
+  echo "> [!CAUTION]"
+  echo "> Upload failed with exit code ${EXIT_CODE}"
+
+  if [ -n "${UPLOAD_STDERR:-}" ]; then
+    echo ""
+    echo "<details>"
+    echo "<summary>Error output</summary>"
+    echo ""
+    echo '```'
+    echo "${UPLOAD_STDERR}"
+    echo '```'
+    echo ""
+    echo "</details>"
+  fi
+
+  echo ""
+  echo "> **Result: Failed**"
+  echo ">"
+  echo "> *drape-io/drape-action*"
+}
+
 # Generate the comment body
 BODY_FILE=$(mktemp)
 trap 'rm -f "${BODY_FILE}"' EXIT
 
-case "${INPUT_COMMAND}" in
-  coverage) generate_coverage_comment > "${BODY_FILE}" ;;
-  tests)    generate_tests_comment > "${BODY_FILE}" ;;
-  scan)     generate_scan_comment > "${BODY_FILE}" ;;
-  lint)     generate_lint_comment > "${BODY_FILE}" ;;
-  *)
-    echo "::warning::Unknown command '${INPUT_COMMAND}' — skipping comment generation"
-    exit 0
-    ;;
-esac
+if [ "${IS_ERROR}" = "true" ]; then
+  generate_error_comment > "${BODY_FILE}"
+else
+  case "${INPUT_COMMAND}" in
+    coverage) generate_coverage_comment > "${BODY_FILE}" ;;
+    tests)    generate_tests_comment > "${BODY_FILE}" ;;
+    scan)     generate_scan_comment > "${BODY_FILE}" ;;
+    lint)     generate_lint_comment > "${BODY_FILE}" ;;
+    *)
+      echo "::warning::Unknown command '${INPUT_COMMAND}' — skipping comment generation"
+      exit 0
+      ;;
+  esac
+fi
 
 # Set the body output using a multiline delimiter
 {

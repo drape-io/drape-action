@@ -158,6 +158,7 @@ runs:
         INPUT_COMMAND: ${{ inputs.command }}
         RESULT_JSON: ${{ steps.upload.outputs.result-json }}
         EXIT_CODE: ${{ steps.upload.outputs.exit-code }}
+        UPLOAD_STDERR: ${{ steps.upload.outputs.stderr }}
 
     - name: Post PR comment
       if: inputs.comment == 'true' && github.event_name == 'pull_request' && steps.comment.outputs.body != ''
@@ -166,3 +167,10 @@ runs:
         header: ${{ inputs.comment-header || format('drape-{0}', inputs.command) }}
         message: ${{ steps.comment.outputs.body }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+
+    - name: Propagate CLI exit code
+      if: steps.upload.outputs.exit-code != '0'
+      shell: bash
+      run: |
+        echo "::error::Drape CLI exited with code ${{ steps.upload.outputs.exit-code }}"
+        exit ${{ steps.upload.outputs.exit-code }}

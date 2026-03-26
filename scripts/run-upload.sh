@@ -61,8 +61,10 @@ CLI_EXIT=$?
 set -e
 
 # Show stderr in the action log
+STDERR_CONTENT=""
 if [ -s "${STDERR_FILE}" ]; then
-  cat "${STDERR_FILE}" >&2
+  STDERR_CONTENT=$(cat "${STDERR_FILE}")
+  echo "${STDERR_CONTENT}" >&2
 fi
 
 # Parse JSON from stdout
@@ -79,6 +81,10 @@ fi
   echo "result-json<<DRAPE_JSON_EOF"
   echo "${JSON_RESULT}"
   echo "DRAPE_JSON_EOF"
+
+  echo "stderr<<DRAPE_STDERR_EOF"
+  echo "${STDERR_CONTENT}"
+  echo "DRAPE_STDERR_EOF"
 } >> "${GITHUB_OUTPUT}"
 
 # Determine pass/fail
@@ -88,5 +94,7 @@ else
   echo "passed=false" >> "${GITHUB_OUTPUT}"
 fi
 
-# Exit with CLI exit code
-exit "${CLI_EXIT}"
+# Always exit 0 so comment generation steps can run.
+# The original exit code is available via the exit-code output,
+# and a final step in action.yml will propagate the failure.
+exit 0
