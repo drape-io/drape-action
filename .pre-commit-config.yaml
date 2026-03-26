@@ -1,0 +1,30 @@
+repos:
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: biome check
+        entry: npx biome check .
+        language: system
+        pass_filenames: false
+        files: \.(ts|tsx|js|jsx|json)$
+
+      - id: typecheck
+        name: typecheck
+        entry: npx tsc --noEmit
+        language: system
+        pass_filenames: false
+        files: \.ts$
+
+      - id: tests
+        name: tests
+        entry: npx vitest run
+        language: system
+        pass_filenames: false
+        files: \.ts$
+
+      - id: dist-rebuild
+        name: rebuild dist and stage
+        entry: bash -c 'npx ncc build src/main.ts -o dist --source-map --license licenses.txt && git add dist/'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

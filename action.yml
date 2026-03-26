@@ -103,76 +103,13 @@ inputs:
 outputs:
   exit-code:
     description: 'CLI exit code'
-    value: ${{ steps.upload.outputs.exit-code }}
   result-json:
     description: 'Raw JSON result from the CLI'
-    value: ${{ steps.upload.outputs.result-json }}
   passed:
     description: 'Whether the check passed (true/false)'
-    value: ${{ steps.upload.outputs.passed }}
   comment-body:
     description: 'The generated comment markdown'
-    value: ${{ steps.comment.outputs.body }}
 
 runs:
-  using: 'composite'
-  steps:
-    - name: Install Drape CLI
-      id: install
-      shell: bash
-      run: ${{ github.action_path }}/scripts/install-cli.sh
-      env:
-        CLI_VERSION: ${{ inputs.cli-version }}
-
-    - name: Run upload
-      id: upload
-      shell: bash
-      run: ${{ github.action_path }}/scripts/run-upload.sh
-      env:
-        DRAPE_TOKEN: ${{ inputs.token }}
-        DRAPE_API_URL: ${{ inputs.api-url }}
-        DRAPE_ORG: ${{ inputs.org }}
-        DRAPE_REPO: ${{ inputs.repo }}
-        INPUT_COMMAND: ${{ inputs.command }}
-        INPUT_FILE: ${{ inputs.file }}
-        INPUT_WAIT: ${{ inputs.wait }}
-        INPUT_TIMEOUT: ${{ inputs.timeout }}
-        INPUT_VERBOSE: ${{ inputs.verbose }}
-        INPUT_FORMAT: ${{ inputs.format }}
-        INPUT_PATH_PREFIX: ${{ inputs.path-prefix }}
-        INPUT_TARGET_BRANCH: ${{ inputs.target-branch }}
-        INPUT_SCAN_NAME: ${{ inputs.scan-name }}
-        INPUT_SCAN_TAG: ${{ inputs.scan-tag }}
-        INPUT_SCAN_TYPE: ${{ inputs.scan-type }}
-        INPUT_FAIL_ON_VULNS: ${{ inputs.fail-on-vulnerabilities }}
-        INPUT_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
-        INPUT_JOB_NAME: ${{ inputs.job-name }}
-        INPUT_GROUP: ${{ inputs.group }}
-
-    - name: Generate comment
-      id: comment
-      if: inputs.comment == 'true' && github.event_name == 'pull_request'
-      shell: bash
-      run: ${{ github.action_path }}/scripts/generate-comment.sh
-      env:
-        INPUT_COMMAND: ${{ inputs.command }}
-        RESULT_JSON: ${{ steps.upload.outputs.result-json }}
-        EXIT_CODE: ${{ steps.upload.outputs.exit-code }}
-        UPLOAD_STDERR: ${{ steps.upload.outputs.stderr }}
-
-    - name: Post PR comment
-      if: inputs.comment == 'true' && github.event_name == 'pull_request' && steps.comment.outputs.body != ''
-      uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3.0.2
-      with:
-        header: ${{ inputs.comment-header || format('drape-{0}', inputs.command) }}
-        message: ${{ steps.comment.outputs.body }}
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-
-    - name: Propagate CLI exit code
-      if: steps.upload.outputs.exit-code != '0'
-      shell: bash
-      env:
-        CLI_EXIT_CODE: ${{ steps.upload.outputs.exit-code }}
-      run: |
-        echo "::error::Drape CLI exited with code ${CLI_EXIT_CODE}"
-        exit "${CLI_EXIT_CODE}"
+  using: 'node24'
+  main: 'dist/index.js'
