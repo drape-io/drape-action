@@ -60,11 +60,11 @@ function generateCoverageComment(
 	// For batch uploads, the CLI attaches the merged result to uploads[0]
 	const result = uploads[0]?.result as CoverageResult | null;
 	if (!result) {
-		return lines(
-			"## Drape: Coverage Report",
-			"",
-			"> Upload completed but no result data available yet.",
-		);
+		const msg =
+			exitCode !== 0
+				? "> :x: **Upload failed** — no result was produced"
+				: "> Upload completed but no result data available yet.";
+		return lines("## Drape: Coverage Report", "", msg);
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
@@ -356,11 +356,11 @@ function generateScanComment(uploads: Upload[], exitCode: number): string {
 function generateLintComment(uploads: Upload[], exitCode: number): string {
 	const result = uploads[0]?.result as LintResult | null;
 	if (!result) {
-		return lines(
-			"## Drape: Lint Report",
-			"",
-			"> Upload completed but no result data available yet.",
-		);
+		const msg =
+			exitCode !== 0
+				? "> :x: **Upload failed** — no result was produced"
+				: "> Upload completed but no result data available yet.";
+		return lines("## Drape: Lint Report", "", msg);
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";

@@ -230,13 +230,24 @@ describe("generateComment", () => {
 			expect(body).not.toContain("files merged");
 		});
 
-		it("shows placeholder when result is null", () => {
+		it("shows placeholder when result is null and exit 0", () => {
 			const response: DrapeCliResponse = {
 				uploads: [{ drape_url: "", result: null }],
 			};
 			const body = generateComment("coverage", 0, response, "");
 
 			expect(body).toContain("no result data available yet");
+		});
+
+		it("shows failure when result is null and exit non-zero", () => {
+			const response: DrapeCliResponse = {
+				uploads: [{ drape_url: "", result: null }],
+			};
+			const body = generateComment("coverage", 1, response, "");
+
+			expect(body).toContain("Upload failed");
+			expect(body).toContain("no result was produced");
+			expect(body).not.toContain("no result data available yet");
 		});
 	});
 
@@ -701,6 +712,16 @@ describe("generateComment", () => {
 			const body = generateComment("coverage", 0, response, "");
 
 			expect(body).toContain("no result data available yet");
+		});
+
+		it("shows failure when result is null and exit non-zero", () => {
+			const response: DrapeCliResponse = {
+				uploads: [{ drape_url: "", result: null }],
+			};
+			const body = generateComment("coverage", 1, response, "");
+
+			expect(body).toContain("Upload failed");
+			expect(body).not.toContain("no result data available yet");
 		});
 	});
 
