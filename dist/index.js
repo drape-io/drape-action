@@ -32652,21 +32652,19 @@ function generateScanComment(uploads, exitCode) {
                 parts.push(`${newLow} low`);
             out.push(`> :warning: **${totalNew} new vulnerabilities found** (${parts.join(", ")})`);
         }
-        out.push("");
-        out.push("| Severity | New | Suppressed | Unchanged |", "|----------|-----|------------|-----------|", `| Critical | ${newCritical} | — | — |`, `| High | ${newHigh} | — | — |`, `| Medium | ${newMedium} | — | — |`, `| Low | ${newLow} | — | — |`, `| **Total** | **${newCritical + newHigh + newMedium + newLow}** | **${suppressedTotal}** | **${unchangedTotal}** |`);
         if (allNewCves.length > 0) {
-            out.push("", "<details>", `<summary>New vulnerabilities (${allNewCves.length})</summary>`, "", "| CVE | Severity | Package | Fix |", "|-----|----------|---------|-----|");
+            out.push("");
+            out.push(`**New vulnerabilities (${allNewCves.length})**`, "", "| CVE | Severity | Package | Fix |", "|-----|----------|---------|-----|");
             for (const cve of allNewCves) {
                 out.push(`| [${cve.cve_id}](https://nvd.nist.gov/vuln/detail/${cve.cve_id}) | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} | ${cve.fix_state ?? "—"} |`);
             }
-            out.push("", "</details>");
         }
         if (allResolvedCves.length > 0) {
-            out.push("", "<details>", `<summary>Resolved vulnerabilities (${allResolvedCves.length})</summary>`, "", "| CVE | Severity | Package |", "|-----|----------|---------|");
+            out.push("");
+            out.push(`**Resolved vulnerabilities (${allResolvedCves.length})**`, "", "| CVE | Severity | Package |", "|-----|----------|---------|");
             for (const cve of allResolvedCves) {
                 out.push(`| ${cve.cve_id} | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} |`);
             }
-            out.push("", "</details>");
         }
         if (allSlaViolations.length > 0) {
             out.push("", "> [!WARNING]", `> **SLA Violations (${allSlaViolations.length})**`, ">", "> | CVE | Severity | Package | Overdue |", "> |-----|----------|---------|---------|");
