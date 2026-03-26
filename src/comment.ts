@@ -81,8 +81,8 @@ function generateCoverageComment(
 
 		out.push(
 			"```diff",
-			`- Base coverage:     ${formatRate(diff.base_coverage_rate)}%`,
-			`+ Head coverage:     ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`,
+			`- Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`,
+			`+ This PR coverage:        ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`,
 			`  New code coverage: ${formatRate(diff.new_code_coverage_rate)}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`,
 		);
 		if (diff.regressed_lines_count > 0) {
@@ -371,18 +371,24 @@ function generateLintComment(uploads: Upload[], exitCode: number): string {
 		out.push(lintSummaryLine(diff));
 		out.push("");
 
-		out.push(
-			"```diff",
-			`- Base violations:  ${diff.base_violation_count}`,
-			`+ Head violations:  ${diff.head_violation_count}`,
-		);
-		if (diff.new_violation_count > 0) {
-			out.push(`+ New:              ${diff.new_violation_count}`);
+		const hasChange = diff.base_violation_count !== diff.head_violation_count;
+
+		if (hasChange) {
+			out.push(
+				"```diff",
+				`- Target branch violations:  ${diff.base_violation_count}`,
+				`+ This PR violations:        ${diff.head_violation_count}`,
+			);
+			if (diff.new_violation_count > 0) {
+				out.push(`+ New:              ${diff.new_violation_count}`);
+			}
+			if (diff.resolved_violation_count > 0) {
+				out.push(`- Resolved:         ${diff.resolved_violation_count}`);
+			}
+			out.push("```");
+		} else {
+			out.push(`Violations: **${diff.head_violation_count}**`);
 		}
-		if (diff.resolved_violation_count > 0) {
-			out.push(`- Resolved:         ${diff.resolved_violation_count}`);
-		}
-		out.push("```");
 
 		const newViolations = diff.new_violations ?? [];
 		if (newViolations.length > 0) {
