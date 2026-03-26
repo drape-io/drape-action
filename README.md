@@ -1,6 +1,6 @@
 # Drape Action
 
-A GitHub Action for uploading coverage, test results, security scans, and lint reports to [Drape](https://app.drape.io). Posts rich PR comments with results including coverage regressions, new vulnerabilities, and test quarantine status.
+A GitHub Action for uploading coverage, test results, security scans, and lint reports to [Drape](https://app.drape.io). Posts rich PR comments with results including coverage regressions, new vulnerabilities, and test suppression status.
 
 ## Usage
 
@@ -14,7 +14,7 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
     command: coverage
     file: coverage.xml
     format: cobertura
-    token: ${{ secrets.DRAPE_TOKEN }}
+    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ### Test Results
@@ -26,7 +26,7 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
   with:
     command: tests
     file: test-results/junit.xml
-    token: ${{ secrets.DRAPE_TOKEN }}
+    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ### Security Scan
@@ -43,7 +43,7 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
     scan-type: dependency
     fail-on-vulnerabilities: 'true'
     fail-on-severity: high
-    token: ${{ secrets.DRAPE_TOKEN }}
+    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ### Lint
@@ -55,7 +55,7 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
   with:
     command: lint
     file: lint-results/lint.sarif
-    token: ${{ secrets.DRAPE_TOKEN }}
+    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ## Inputs
@@ -64,7 +64,7 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
 |-------|----------|---------|-------------|
 | `command` | Yes | | Upload type: `coverage`, `tests`, `scan`, `lint` |
 | `file` | Yes | | File path or glob pattern |
-| `token` | Yes | | Drape API token |
+| `api-key` | Yes | | Drape API key |
 | `org` | No | `github.repository_owner` | Drape organization slug |
 | `repo` | No | `github.repository` | Drape repository name |
 | `cli-version` | No | `latest` | Drape CLI version |
@@ -126,12 +126,22 @@ permissions:
 
 Comments are posted as sticky (updating) comments on pull requests. Each command type gets its own comment, identified by a header key (`drape-coverage`, `drape-tests`, etc.). Comments include:
 
-- **Coverage**: head/base rates, delta, new code coverage, regressed lines with file paths and line ranges
-- **Tests**: ingested count, failures, quarantine status
-- **Security Scan**: severity breakdown, new/resolved CVEs with links, SLA violations
-- **Lint**: violation counts, new violations with file/line/rule details
+- **Coverage**: head/base rates with diff highlighting, new code coverage, regressed lines with file paths and line ranges
+- **Tests**: ingested count, failures, suppression status, flaky test details
+- **Security Scan**: severity breakdown table, new/resolved CVEs with NVD links, SLA violations
+- **Lint**: violation counts with diff highlighting, new violations with file/line/rule details
 
 To disable comments, set `comment: 'false'`.
+
+## Development
+
+```bash
+mise install          # install Node 24
+just install          # install npm dependencies
+just check            # run all checks (lint, typecheck, test, dist-check)
+just preview          # preview all comment templates locally
+just post-samples 5   # post sample comments on PR #5
+```
 
 ## License
 
