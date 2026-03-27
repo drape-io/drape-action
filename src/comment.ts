@@ -13,6 +13,10 @@ import type {
 
 type Command = "coverage" | "tests" | "scan" | "lint";
 
+function titleWithGroup(base: string, group?: string): string {
+	return group ? `${base} — ${group}` : base;
+}
+
 /**
  * Generate a markdown PR comment for the given command and CLI response.
  * Returns empty string if no comment should be generated.
@@ -22,12 +26,14 @@ export function generateComment(
 	exitCode: number,
 	response: DrapeCliResponse,
 	stderr: string,
+	group?: string,
+	commentTitle?: string,
 ): string {
 	const uploads = response.uploads ?? [];
 	const hasUploads = uploads.length > 0;
 
 	if (!hasUploads && exitCode !== 0) {
-		return generateErrorComment(command, exitCode, stderr);
+		return generateErrorComment(command, exitCode, stderr, group, commentTitle);
 	}
 
 	if (!hasUploads) {
@@ -40,13 +46,15 @@ export function generateComment(
 				uploads,
 				exitCode,
 				response.files_uploaded,
+				group,
+				commentTitle,
 			);
 		case "tests":
-			return generateTestsComment(uploads, exitCode);
+			return generateTestsComment(uploads, exitCode, group, commentTitle);
 		case "scan":
-			return generateScanComment(uploads, exitCode);
+			return generateScanComment(uploads, exitCode, commentTitle);
 		case "lint":
-			return generateLintComment(uploads, exitCode);
+			return generateLintComment(uploads, exitCode, group, commentTitle);
 	}
 }
 
@@ -56,23 +64,26 @@ function generateCoverageComment(
 	uploads: Upload[],
 	exitCode: number,
 	filesUploaded?: number,
+	group?: string,
+	commentTitle?: string,
 ): string {
 	// For batch uploads, the CLI attaches the merged result to uploads[0]
 	const result = uploads[0]?.result as CoverageResult | null;
+	const title = commentTitle ?? titleWithGroup("Drape: Coverage Report", group);
 	if (!result) {
 		const msg =
 			exitCode !== 0
 				? "> :x: **Upload failed** — no result was produced"
 				: "> Upload completed but no result data available yet.";
-		return lines("## Drape: Coverage Report", "", msg);
+		return lines(`## ${title}`, "", msg);
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const diff = result.coverage_diff;
 	const header =
 		filesUploaded != null && filesUploaded > 1
-			? `## Drape: Coverage Report (${filesUploaded} files merged)`
-			: "## Drape: Coverage Report";
+			? `## ${title} (${filesUploaded} files merged)`
+			: `## ${title}`;
 	const out: string[] = [header, ""];
 
 	if (diff) {
@@ -139,7 +150,12 @@ function coverageSummaryLine(diff: CoverageDiff): string {
 
 // --- Tests ---
 
-function generateTestsComment(uploads: Upload[], exitCode: number): string {
+function generateTestsComment(
+	uploads: Upload[],
+	exitCode: number,
+	group?: string,
+	commentTitle?: string,
+): string {
 	let totalIngested = 0;
 	let totalFailed = 0;
 	let totalSuppressed = 0;
@@ -159,7 +175,8 @@ function generateTestsComment(uploads: Upload[], exitCode: number): string {
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
-	const out: string[] = ["## Drape: Test Results", ""];
+	const title = commentTitle ?? titleWithGroup("Drape: Test Results", group);
+	const out: string[] = [`## ${title}`, ""];
 
 	// Summary line
 	if (totalUnsuppressed > 0) {
@@ -217,7 +234,11 @@ function generateTestsComment(uploads: Upload[], exitCode: number): string {
 
 // --- Scan ---
 
-function generateScanComment(uploads: Upload[], exitCode: number): string {
+function generateScanComment(
+	uploads: Upload[],
+	exitCode: number,
+	commentTitle?: string,
+): string {
 	let hasDiff = false;
 	let newCritical = 0;
 	let newHigh = 0;
@@ -251,9 +272,10 @@ function generateScanComment(uploads: Upload[], exitCode: number): string {
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
-	const header = scanName
-		? `## Drape: Security Scan — ${scanName}`
-		: "## Drape: Security Scan";
+	const defaultTitle = scanName
+		? `Drape: Security Scan — ${scanName}`
+		: "Drape: Security Scan";
+	const header = `## ${commentTitle ?? defaultTitle}`;
 	const out: string[] = [header, ""];
 
 	if (hasDiff) {
@@ -353,19 +375,29 @@ function generateScanComment(uploads: Upload[], exitCode: number): string {
 
 // --- Lint ---
 
-function generateLintComment(uploads: Upload[], exitCode: number): string {
+function generateLintComment(
+	uploads: Upload[],
+	exitCode: number,
+	group?: string,
+	commentTitle?: string,
+): string {
 	const result = uploads[0]?.result as LintResult | null;
 	if (!result) {
 		const msg =
 			exitCode !== 0
 				? "> :x: **Upload failed** — no result was produced"
 				: "> Upload completed but no result data available yet.";
-		return lines("## Drape: Lint Report", "", msg);
+		return lines(
+			`## ${commentTitle ?? titleWithGroup("Drape: Lint Report", group)}`,
+			"",
+			msg,
+		);
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const diff = result.lint_diff;
-	const out: string[] = ["## Drape: Lint Report", ""];
+	const title = commentTitle ?? titleWithGroup("Drape: Lint Report", group);
+	const out: string[] = [`## ${title}`, ""];
 
 	if (diff) {
 		out.push(lintSummaryLine(diff));
@@ -440,6 +472,8 @@ export function generateErrorComment(
 	command: Command,
 	exitCode: number,
 	stderr: string,
+	group?: string,
+	commentTitle?: string,
 ): string {
 	const titles: Record<Command, string> = {
 		coverage: "Coverage Report",
@@ -448,8 +482,10 @@ export function generateErrorComment(
 		lint: "Lint Report",
 	};
 
+	const title =
+		commentTitle ?? titleWithGroup(`Drape: ${titles[command]}`, group);
 	const out: string[] = [
-		`## Drape: ${titles[command]}`,
+		`## ${title}`,
 		"",
 		`> :x: **Upload failed** with exit code ${exitCode}`,
 	];
