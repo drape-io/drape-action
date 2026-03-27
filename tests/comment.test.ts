@@ -191,6 +191,33 @@ describe("generateComment", () => {
 			expect(body).not.toContain("-54.980000000000004");
 		});
 
+		it("hides coverage delta when there is no change", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/123",
+						result: {
+							coverage_diff: {
+								passed: true,
+								head_coverage_rate: "97.54",
+								base_coverage_rate: "97.54",
+								coverage_delta: "0",
+								new_lines_total: 0,
+								new_lines_covered: 0,
+								new_code_coverage_rate: "0.0",
+								regressed_lines_count: 0,
+								regressed_files: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			expect(body).toContain("97.54%");
+			expect(body).not.toContain("(0%)");
+		});
+
 		it("shows merged file count in header for batch uploads", () => {
 			const response: DrapeCliResponse = {
 				uploads: [
