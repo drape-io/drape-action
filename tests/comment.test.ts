@@ -218,6 +218,69 @@ describe("generateComment", () => {
 			expect(body).not.toContain("(0%)");
 		});
 
+		it("hides new code coverage when base and head are identical with no new lines", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/123",
+						result: {
+							coverage_diff: {
+								passed: true,
+								head_coverage_rate: "97.55",
+								base_coverage_rate: "97.55",
+								coverage_delta: "0",
+								new_lines_total: 0,
+								new_lines_covered: 0,
+								new_code_coverage_rate: "undefined",
+								regressed_lines_count: 0,
+								regressed_files: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			// Should still show both lines so the user sees coverage didn't change
+			expect(body).toContain("Target branch coverage");
+			expect(body).toContain("This PR coverage");
+			expect(body).toContain("97.55%");
+			// Should not show new code coverage when there are 0 new lines
+			expect(body).not.toContain("undefined%");
+			expect(body).not.toContain("New code coverage");
+		});
+
+		it("hides new code coverage line when there are no new lines", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/123",
+						result: {
+							coverage_diff: {
+								passed: true,
+								head_coverage_rate: "90.00",
+								base_coverage_rate: "85.00",
+								coverage_delta: "5",
+								new_lines_total: 0,
+								new_lines_covered: 0,
+								new_code_coverage_rate: "undefined",
+								regressed_lines_count: 0,
+								regressed_files: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			// Should still show the diff format since rates differ
+			expect(body).toContain("Target branch coverage");
+			expect(body).toContain("This PR coverage");
+			// Should not show new code coverage when there are 0 new lines
+			expect(body).not.toContain("undefined%");
+			expect(body).not.toContain("New code coverage");
+		});
+
 		it("shows merged file count in header for batch uploads", () => {
 			const response: DrapeCliResponse = {
 				uploads: [

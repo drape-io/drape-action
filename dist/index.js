@@ -32531,7 +32531,10 @@ function generateCoverageComment(uploads, exitCode, filesUploaded, group, commen
     if (diff) {
         out.push(coverageSummaryLine(diff));
         out.push("");
-        out.push("```diff", `- Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`, `+ This PR coverage:        ${formatRate(diff.head_coverage_rate)}%${Number.parseFloat(diff.coverage_delta) !== 0 ? ` (${formatRate(diff.coverage_delta)}%)` : ""}`, `  New code coverage: ${formatRate(diff.new_code_coverage_rate)}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`);
+        out.push("```diff", `- Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`, `+ This PR coverage:        ${formatRate(diff.head_coverage_rate)}%${Number.parseFloat(diff.coverage_delta) !== 0 ? ` (${formatRate(diff.coverage_delta)}%)` : ""}`);
+        if (diff.new_lines_total > 0) {
+            out.push(`  New code coverage: ${formatRate(diff.new_code_coverage_rate)}% (${diff.new_lines_covered}/${diff.new_lines_total} lines)`);
+        }
         if (diff.regressed_lines_count > 0) {
             out.push(`! Regressed lines:   ${diff.regressed_lines_count}`);
         }
