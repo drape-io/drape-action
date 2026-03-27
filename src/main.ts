@@ -27,6 +27,8 @@ async function run(): Promise<void> {
 			result.exitCode,
 			result.resultJson,
 			result.stderr,
+			inputs.group,
+			inputs.commentTitle,
 		);
 
 		core.setOutput("comment-body", body);

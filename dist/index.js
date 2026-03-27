@@ -32484,45 +32484,49 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.generateComment = generateComment;
 exports.generateErrorComment = generateErrorComment;
 exports.formatRate = formatRate;
+function titleWithGroup(base, group) {
+    return group ? `${base} — ${group}` : base;
+}
 /**
  * Generate a markdown PR comment for the given command and CLI response.
  * Returns empty string if no comment should be generated.
  */
-function generateComment(command, exitCode, response, stderr) {
+function generateComment(command, exitCode, response, stderr, group, commentTitle) {
     const uploads = response.uploads ?? [];
     const hasUploads = uploads.length > 0;
     if (!hasUploads && exitCode !== 0) {
-        return generateErrorComment(command, exitCode, stderr);
+        return generateErrorComment(command, exitCode, stderr, group, commentTitle);
     }
     if (!hasUploads) {
         return "";
     }
     switch (command) {
         case "coverage":
-            return generateCoverageComment(uploads, exitCode, response.files_uploaded);
+            return generateCoverageComment(uploads, exitCode, response.files_uploaded, group, commentTitle);
         case "tests":
-            return generateTestsComment(uploads, exitCode);
+            return generateTestsComment(uploads, exitCode, group, commentTitle);
         case "scan":
-            return generateScanComment(uploads, exitCode);
+            return generateScanComment(uploads, exitCode, commentTitle);
         case "lint":
-            return generateLintComment(uploads, exitCode);
+            return generateLintComment(uploads, exitCode, group, commentTitle);
     }
 }
 // --- Coverage ---
-function generateCoverageComment(uploads, exitCode, filesUploaded) {
+function generateCoverageComment(uploads, exitCode, filesUploaded, group, commentTitle) {
     // For batch uploads, the CLI attaches the merged result to uploads[0]
     const result = uploads[0]?.result;
+    const title = commentTitle ?? titleWithGroup("Drape: Coverage Report", group);
     if (!result) {
         const msg = exitCode !== 0
             ? "> :x: **Upload failed** — no result was produced"
             : "> Upload completed but no result data available yet.";
-        return lines("## Drape: Coverage Report", "", msg);
+        return lines(`## ${title}`, "", msg);
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
     const diff = result.coverage_diff;
     const header = filesUploaded != null && filesUploaded > 1
-        ? `## Drape: Coverage Report (${filesUploaded} files merged)`
-        : "## Drape: Coverage Report";
+        ? `## ${title} (${filesUploaded} files merged)`
+        : `## ${title}`;
     const out = [header, ""];
     if (diff) {
         out.push(coverageSummaryLine(diff));
@@ -32565,7 +32569,7 @@ function coverageSummaryLine(diff) {
     return "> :white_check_mark: **Coverage check passed** — no regressions detected";
 }
 // --- Tests ---
-function generateTestsComment(uploads, exitCode) {
+function generateTestsComment(uploads, exitCode, group, commentTitle) {
     let totalIngested = 0;
     let totalFailed = 0;
     let totalSuppressed = 0;
@@ -32584,7 +32588,8 @@ function generateTestsComment(uploads, exitCode) {
         allFlakyTests = allFlakyTests.concat(r.flaky_tests ?? []);
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
-    const out = ["## Drape: Test Results", ""];
+    const title = commentTitle ?? titleWithGroup("Drape: Test Results", group);
+    const out = [`## ${title}`, ""];
     // Summary line
     if (totalUnsuppressed > 0) {
         out.push(`> :x: **${totalUnsuppressed} unsuppressed test failure(s)**`);
@@ -32618,7 +32623,7 @@ function generateTestsComment(uploads, exitCode) {
     return lines(...out);
 }
 // --- Scan ---
-function generateScanComment(uploads, exitCode) {
+function generateScanComment(uploads, exitCode, commentTitle) {
     let hasDiff = false;
     let newCritical = 0;
     let newHigh = 0;
@@ -32651,9 +32656,10 @@ function generateScanComment(uploads, exitCode) {
         }
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
-    const header = scanName
-        ? `## Drape: Security Scan — ${scanName}`
-        : "## Drape: Security Scan";
+    const defaultTitle = scanName
+        ? `Drape: Security Scan — ${scanName}`
+        : "Drape: Security Scan";
+    const header = `## ${commentTitle ?? defaultTitle}`;
     const out = [header, ""];
     if (hasDiff) {
         const totalNew = newCritical + newHigh + newMedium + newLow;
@@ -32708,17 +32714,18 @@ function generateScanComment(uploads, exitCode) {
     return lines(...out);
 }
 // --- Lint ---
-function generateLintComment(uploads, exitCode) {
+function generateLintComment(uploads, exitCode, group, commentTitle) {
     const result = uploads[0]?.result;
     if (!result) {
         const msg = exitCode !== 0
             ? "> :x: **Upload failed** — no result was produced"
             : "> Upload completed but no result data available yet.";
-        return lines("## Drape: Lint Report", "", msg);
+        return lines(`## ${commentTitle ?? titleWithGroup("Drape: Lint Report", group)}`, "", msg);
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
     const diff = result.lint_diff;
-    const out = ["## Drape: Lint Report", ""];
+    const title = commentTitle ?? titleWithGroup("Drape: Lint Report", group);
+    const out = [`## ${title}`, ""];
     if (diff) {
         out.push(lintSummaryLine(diff));
         out.push("");
@@ -32763,15 +32770,16 @@ function lintSummaryLine(diff) {
     return "> :white_check_mark: **Lint check passed**";
 }
 // --- Error ---
-function generateErrorComment(command, exitCode, stderr) {
+function generateErrorComment(command, exitCode, stderr, group, commentTitle) {
     const titles = {
         coverage: "Coverage Report",
         tests: "Test Results",
         scan: "Security Scan",
         lint: "Lint Report",
     };
+    const title = commentTitle ?? titleWithGroup(`Drape: ${titles[command]}`, group);
     const out = [
-        `## Drape: ${titles[command]}`,
+        `## ${title}`,
         "",
         `> :x: **Upload failed** with exit code ${exitCode}`,
     ];
@@ -32878,6 +32886,7 @@ function getInputs() {
         jobName: core.getInput("job-name") || undefined,
         comment: core.getBooleanInput("comment"),
         commentHeader,
+        commentTitle: core.getInput("comment-title") || undefined,
         githubToken: core.getInput("github-token"),
     };
 }
@@ -33056,7 +33065,7 @@ async function run() {
     core.setOutput("passed", String(result.passed));
     // Step 4: Generate and post PR comment
     if (inputs.comment && github.context.eventName === "pull_request") {
-        const body = (0, comment_js_1.generateComment)(inputs.command, result.exitCode, result.resultJson, result.stderr);
+        const body = (0, comment_js_1.generateComment)(inputs.command, result.exitCode, result.resultJson, result.stderr, inputs.group, inputs.commentTitle);
         core.setOutput("comment-body", body);
         if (body) {
             const pr = github.context.payload.pull_request;

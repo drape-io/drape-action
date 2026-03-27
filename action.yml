@@ -95,6 +95,9 @@ inputs:
   comment-header:
     description: 'Sticky comment header ID (default: drape-{command})'
     required: false
+  comment-title:
+    description: 'Visible title in the PR comment (default: "Drape: {Command} — {group}")'
+    required: false
   github-token:
     description: 'GitHub token for posting PR comments'
     required: false

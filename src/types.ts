@@ -154,6 +154,7 @@ export interface ActionInputs {
 	jobName?: string;
 	comment: boolean;
 	commentHeader: string;
+	commentTitle?: string;
 	githubToken: string;
 }
 

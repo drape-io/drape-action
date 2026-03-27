@@ -376,6 +376,54 @@ describe("generateComment", () => {
 			expect(body).toContain("All tests passed");
 		});
 
+		it("appends group name to header when provided", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							tests_ingested: 200,
+							failed_count: 0,
+							suppressed_count: 0,
+							unsuppressed_failure_count: 0,
+							flaky_count: 0,
+						},
+					},
+				],
+			};
+			const body = generateComment("tests", 0, response, "", "python");
+
+			expect(body).toContain("## Drape: Test Results — python");
+		});
+
+		it("comment-title overrides group-based default", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							tests_ingested: 200,
+							failed_count: 0,
+							suppressed_count: 0,
+							unsuppressed_failure_count: 0,
+							flaky_count: 0,
+						},
+					},
+				],
+			};
+			const body = generateComment(
+				"tests",
+				0,
+				response,
+				"",
+				"python",
+				"My Custom Title",
+			);
+
+			expect(body).toContain("## My Custom Title");
+			expect(body).not.toContain("Test Results");
+		});
+
 		it("reports flaky test failures with details", () => {
 			const response: DrapeCliResponse = {
 				uploads: [

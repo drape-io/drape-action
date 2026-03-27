@@ -41,6 +41,7 @@ export function getInputs(): ActionInputs {
 		jobName: core.getInput("job-name") || undefined,
 		comment: core.getBooleanInput("comment"),
 		commentHeader,
+		commentTitle: core.getInput("comment-title") || undefined,
 		githubToken: core.getInput("github-token"),
 	};
 }
