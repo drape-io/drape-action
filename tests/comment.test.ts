@@ -245,6 +245,9 @@ describe("generateComment", () => {
 			expect(body).toContain("Target branch coverage");
 			expect(body).toContain("This PR coverage");
 			expect(body).toContain("97.55%");
+			// Should use neutral (space-prefixed) lines, not red/green diff markers
+			expect(body).not.toContain("- Target branch coverage");
+			expect(body).not.toContain("+ This PR coverage");
 			// Should not show new code coverage when there are 0 new lines
 			expect(body).not.toContain("undefined%");
 			expect(body).not.toContain("New code coverage");
