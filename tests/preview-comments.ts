@@ -89,6 +89,36 @@ preview(
 	),
 );
 
+// --- Coverage: no change, no new lines ---
+preview(
+	"Coverage — No Change",
+	generateComment(
+		"coverage",
+		0,
+		{
+			uploads: [
+				{
+					drape_url: "https://app.drape.io/r/coverage-789",
+					result: {
+						coverage_diff: {
+							passed: true,
+							head_coverage_rate: "97.55",
+							base_coverage_rate: "97.55",
+							coverage_delta: "0",
+							new_lines_total: 0,
+							new_lines_covered: 0,
+							new_code_coverage_rate: "undefined",
+							regressed_lines_count: 0,
+							regressed_files: [],
+						},
+					},
+				},
+			],
+		},
+		"",
+	),
+);
+
 // --- Tests: all suppressed ---
 preview(
 	"Tests — Suppressed Failures",
