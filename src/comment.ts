@@ -90,13 +90,15 @@ function generateCoverageComment(
 		out.push(coverageSummaryLine(diff));
 		out.push("");
 
-		const hasChange = Number.parseFloat(diff.coverage_delta) !== 0;
+		const delta = Number.parseFloat(diff.coverage_delta);
+		const hasChange = delta !== 0;
 
 		if (hasChange) {
+			const improved = delta > 0;
 			out.push(
 				"```diff",
-				`- Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`,
-				`+ This PR coverage:        ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`,
+				`${improved ? "-" : "+"} Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`,
+				`${improved ? "+" : "-"} This PR coverage:        ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`,
 			);
 		} else {
 			out.push(
@@ -420,16 +422,17 @@ function generateLintComment(
 		const hasChange = diff.base_violation_count !== diff.head_violation_count;
 
 		if (hasChange) {
+			const improved = diff.head_violation_count < diff.base_violation_count;
 			out.push(
 				"```diff",
-				`- Target branch violations:  ${diff.base_violation_count}`,
-				`+ This PR violations:        ${diff.head_violation_count}`,
+				`${improved ? "-" : "+"} Target branch violations:  ${diff.base_violation_count}`,
+				`${improved ? "+" : "-"} This PR violations:        ${diff.head_violation_count}`,
 			);
 			if (diff.new_violation_count > 0) {
-				out.push(`+ New:              ${diff.new_violation_count}`);
+				out.push(`- New:              ${diff.new_violation_count}`);
 			}
 			if (diff.resolved_violation_count > 0) {
-				out.push(`- Resolved:         ${diff.resolved_violation_count}`);
+				out.push(`+ Resolved:         ${diff.resolved_violation_count}`);
 			}
 			out.push("```");
 		} else {

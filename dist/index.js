@@ -32531,9 +32531,11 @@ function generateCoverageComment(uploads, exitCode, filesUploaded, group, commen
     if (diff) {
         out.push(coverageSummaryLine(diff));
         out.push("");
-        const hasChange = Number.parseFloat(diff.coverage_delta) !== 0;
+        const delta = Number.parseFloat(diff.coverage_delta);
+        const hasChange = delta !== 0;
         if (hasChange) {
-            out.push("```diff", `- Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`, `+ This PR coverage:        ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`);
+            const improved = delta > 0;
+            out.push("```diff", `${improved ? "-" : "+"} Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`, `${improved ? "+" : "-"} This PR coverage:        ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%)`);
         }
         else {
             out.push("```diff", `  Target branch coverage:  ${formatRate(diff.base_coverage_rate)}%`, `  This PR coverage:        ${formatRate(diff.head_coverage_rate)}%`);
@@ -32740,12 +32742,13 @@ function generateLintComment(uploads, exitCode, group, commentTitle) {
         out.push("");
         const hasChange = diff.base_violation_count !== diff.head_violation_count;
         if (hasChange) {
-            out.push("```diff", `- Target branch violations:  ${diff.base_violation_count}`, `+ This PR violations:        ${diff.head_violation_count}`);
+            const improved = diff.head_violation_count < diff.base_violation_count;
+            out.push("```diff", `${improved ? "-" : "+"} Target branch violations:  ${diff.base_violation_count}`, `${improved ? "+" : "-"} This PR violations:        ${diff.head_violation_count}`);
             if (diff.new_violation_count > 0) {
-                out.push(`+ New:              ${diff.new_violation_count}`);
+                out.push(`- New:              ${diff.new_violation_count}`);
             }
             if (diff.resolved_violation_count > 0) {
-                out.push(`- Resolved:         ${diff.resolved_violation_count}`);
+                out.push(`+ Resolved:         ${diff.resolved_violation_count}`);
             }
             out.push("```");
         }

@@ -284,6 +284,62 @@ describe("generateComment", () => {
 			expect(body).not.toContain("New code coverage");
 		});
 
+		it("uses red marker on PR line when coverage drops", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/123",
+						result: {
+							coverage_diff: {
+								passed: true,
+								head_coverage_rate: "80.0",
+								base_coverage_rate: "84.0",
+								coverage_delta: "-4.0",
+								new_lines_total: 10,
+								new_lines_covered: 5,
+								new_code_coverage_rate: "50.0",
+								regressed_lines_count: 0,
+								regressed_files: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			// Coverage dropped: PR line should be red (-), target should be green (+)
+			expect(body).toContain("+ Target branch coverage:");
+			expect(body).toContain("- This PR coverage:");
+		});
+
+		it("uses green marker on PR line when coverage improves", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "https://app.drape.io/r/123",
+						result: {
+							coverage_diff: {
+								passed: true,
+								head_coverage_rate: "90.00",
+								base_coverage_rate: "85.00",
+								coverage_delta: "5",
+								new_lines_total: 10,
+								new_lines_covered: 10,
+								new_code_coverage_rate: "100.0",
+								regressed_lines_count: 0,
+								regressed_files: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			// Coverage improved: PR line should be green (+), target should be red (-)
+			expect(body).toContain("- Target branch coverage:");
+			expect(body).toContain("+ This PR coverage:");
+		});
+
 		it("shows merged file count in header for batch uploads", () => {
 			const response: DrapeCliResponse = {
 				uploads: [
@@ -748,6 +804,61 @@ describe("generateComment", () => {
 			expect(body).toContain("new violations introduced");
 			expect(body).toContain("`src/app.py`");
 			expect(body).toContain("E501");
+		});
+
+		it("uses red marker on PR line when violations increase", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							lint_diff: {
+								passed: false,
+								failure_reasons: ["new violations"],
+								base_violation_count: 10,
+								head_violation_count: 13,
+								new_violation_count: 3,
+								resolved_violation_count: 0,
+								suppressed_violation_count: 0,
+								new_violations: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("lint", 1, response, "");
+
+			// Violations increased: PR is worse (-), target was better (+)
+			expect(body).toContain("+ Target branch violations:");
+			expect(body).toContain("- This PR violations:");
+		});
+
+		it("uses green marker on PR line when violations decrease", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							lint_diff: {
+								passed: true,
+								base_violation_count: 10,
+								head_violation_count: 7,
+								new_violation_count: 0,
+								resolved_violation_count: 3,
+								suppressed_violation_count: 0,
+								new_violations: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("lint", 0, response, "");
+
+			// Violations decreased: PR is better (+), target was worse (-)
+			expect(body).toContain("- Target branch violations:");
+			expect(body).toContain("+ This PR violations:");
+			// Resolved is good (+), New would be bad (-)
+			expect(body).toContain("+ Resolved:");
 		});
 
 		it("shows passing lint check", () => {
