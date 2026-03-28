@@ -2,6 +2,8 @@
 
 A GitHub Action for uploading coverage, test results, security scans, and lint reports to [Drape](https://app.drape.io). Posts rich PR comments with results including coverage regressions, new vulnerabilities, and test suppression status.
 
+**[Documentation](https://docs.drape.io/)**
+
 ## Usage
 
 ### Coverage
