@@ -146,7 +146,11 @@ function logUploadSummary(
 				break;
 			}
 			case "scan": {
-				const diff = "scan_diff" in r ? (r as ScanResult).scan_diff : undefined;
+				const sr = r as ScanResult;
+				const label = sr.scan_name
+					? `Drape scan (${sr.scan_name})`
+					: "Drape scan";
+				const diff = sr.scan_diff;
 				if (diff) {
 					const totalNew =
 						diff.new_critical_count +
@@ -154,12 +158,11 @@ function logUploadSummary(
 						diff.new_medium_count +
 						diff.new_low_count;
 					core.info(
-						`Drape scan: ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
+						`${label}: ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
 					);
 				} else {
-					const sr = r as ScanResult;
 					core.info(
-						`Drape scan: ${sr.total_vulnerabilities ?? 0} total vulnerabilities ${url}`,
+						`${label}: ${sr.total_vulnerabilities ?? 0} total vulnerabilities ${url}`,
 					);
 				}
 				break;
