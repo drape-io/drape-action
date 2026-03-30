@@ -134,7 +134,7 @@ export type Command = "coverage" | "tests" | "scan" | "lint";
 export interface ActionInputs {
 	command: Command;
 	file: string;
-	apiKey: string;
+	apiKey?: string;
 	org?: string;
 	repo?: string;
 	cliVersion: string;

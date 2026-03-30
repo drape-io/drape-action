@@ -201,4 +201,18 @@ describe("runUpload", () => {
 			"Failed to parse CLI JSON output",
 		);
 	});
+
+	it("does not set DRAPE_API_KEY when apiKey is absent", async () => {
+		vi.mocked(exec.getExecOutput).mockResolvedValue({
+			exitCode: 0,
+			stdout: '{"uploads": []}',
+			stderr: "",
+		});
+
+		await runUpload(makeInputs({ apiKey: undefined }));
+		const envArg = vi.mocked(exec.getExecOutput).mock.calls[0][2]?.env;
+		expect(envArg).toBeDefined();
+		expect(envArg).not.toHaveProperty("DRAPE_API_KEY");
+		expect(envArg).toHaveProperty("DRAPE_API_URL");
+	});
 });

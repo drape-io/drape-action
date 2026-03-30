@@ -32878,7 +32878,7 @@ function getInputs() {
     return {
         command: command,
         file: core.getInput("file", { required: true }),
-        apiKey: core.getInput("api-key", { required: true }),
+        apiKey: core.getInput("api-key") || undefined,
         org: core.getInput("org") || undefined,
         repo: core.getInput("repo") || undefined,
         cliVersion: core.getInput("cli-version") || "latest",
@@ -33065,17 +33065,34 @@ const inputs_js_1 = __nccwpck_require__(8422);
 const install_js_1 = __nccwpck_require__(232);
 const sticky_comment_js_1 = __nccwpck_require__(1248);
 const upload_js_1 = __nccwpck_require__(1550);
+function validateAuth(inputs) {
+    if (inputs.apiKey) {
+        return;
+    }
+    // No API key — check that OIDC env vars are available so the CLI can auto-detect
+    const hasOidc = !!process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+    if (!hasOidc) {
+        throw new Error('Either "api-key" or OIDC authentication is required. ' +
+            'For OIDC, add "permissions: id-token: write" to your job and set the "org" input.');
+    }
+    if (!inputs.org) {
+        throw new Error('The "org" input is required when using OIDC authentication (no api-key provided).');
+    }
+    core.info("Using OIDC authentication (no api-key provided)");
+}
 async function run() {
     const inputs = (0, inputs_js_1.getInputs)();
-    // Step 1: Install CLI
+    // Step 1: Validate authentication (API key or OIDC)
+    validateAuth(inputs);
+    // Step 2: Install CLI
     await (0, install_js_1.installCli)(inputs.cliVersion);
-    // Step 2: Run upload
+    // Step 3: Run upload
     const result = await (0, upload_js_1.runUpload)(inputs);
-    // Step 3: Set outputs
+    // Step 4: Set outputs
     core.setOutput("exit-code", String(result.exitCode));
     core.setOutput("result-json", JSON.stringify(result.resultJson));
     core.setOutput("passed", String(result.passed));
-    // Step 4: Generate and post PR comment
+    // Step 5: Generate and post PR comment
     if (inputs.comment && github.context.eventName === "pull_request") {
         const body = (0, comment_js_1.generateComment)(inputs.command, result.exitCode, result.resultJson, result.stderr, inputs.group, inputs.commentTitle);
         core.setOutput("comment-body", body);
@@ -33086,7 +33103,7 @@ async function run() {
             }
         }
     }
-    // Step 5: Propagate failure
+    // Step 6: Propagate failure
     if (result.exitCode !== 0) {
         core.setFailed(`Drape CLI exited with code ${result.exitCode}`);
     }
@@ -33268,9 +33285,10 @@ async function runUpload(inputs) {
     const args = buildCliArgs(inputs);
     const env = {
         ...process.env,
-        DRAPE_API_KEY: inputs.apiKey,
         DRAPE_API_URL: inputs.apiUrl,
     };
+    if (inputs.apiKey)
+        env.DRAPE_API_KEY = inputs.apiKey;
     if (inputs.org)
         env.DRAPE_ORG = inputs.org;
     if (inputs.repo)

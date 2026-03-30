@@ -47,6 +47,23 @@ describe("getInputs", () => {
 		expect(inputs.apiKey).toBe("drape-key-123");
 	});
 
+	it("allows api-key to be omitted for OIDC auth", () => {
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			const defaults: Record<string, string> = {
+				command: "coverage",
+				file: "coverage.xml",
+				"cli-version": "latest",
+				"api-url": "https://app.drape.io",
+				timeout: "120",
+				"github-token": "gh-token",
+			};
+			return defaults[name] ?? "";
+		});
+
+		const inputs = getInputs();
+		expect(inputs.apiKey).toBeUndefined();
+	});
+
 	it("sets default comment header from command", () => {
 		const inputs = getInputs();
 		expect(inputs.commentHeader).toBe("drape-coverage");

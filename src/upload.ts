@@ -60,9 +60,9 @@ export async function runUpload(
 
 	const env: Record<string, string> = {
 		...process.env,
-		DRAPE_API_KEY: inputs.apiKey,
 		DRAPE_API_URL: inputs.apiUrl,
 	};
+	if (inputs.apiKey) env.DRAPE_API_KEY = inputs.apiKey;
 	if (inputs.org) env.DRAPE_ORG = inputs.org;
 	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
 
