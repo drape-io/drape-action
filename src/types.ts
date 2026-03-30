@@ -11,12 +11,43 @@ export interface Upload {
 }
 
 // The result field is polymorphic based on command type.
-// We use a union — consumers narrow based on which fields are present.
+// Narrow using the type-guard functions below instead of manual `as` casts.
 export type UploadResult =
 	| CoverageResult
 	| TestsResult
 	| ScanResult
 	| LintResult;
+
+// --- Type guards for UploadResult narrowing ---
+
+export function asCoverage(
+	r: UploadResult | null | undefined,
+): CoverageResult | null {
+	if (!r) return null;
+	if ("coverage_diff" in r || "coverage_rate" in r) return r;
+	return null;
+}
+
+export function asTests(
+	r: UploadResult | null | undefined,
+): TestsResult | null {
+	if (!r) return null;
+	if ("tests_ingested" in r) return r;
+	return null;
+}
+
+export function asScan(r: UploadResult | null | undefined): ScanResult | null {
+	if (!r) return null;
+	if ("scan_diff" in r || "scan_name" in r || "total_vulnerabilities" in r)
+		return r;
+	return null;
+}
+
+export function asLint(r: UploadResult | null | undefined): LintResult | null {
+	if (!r) return null;
+	if ("lint_diff" in r || "total_violations" in r) return r;
+	return null;
+}
 
 // --- Coverage ---
 
@@ -134,7 +165,8 @@ export type Command = "coverage" | "tests" | "scan" | "lint";
 export interface ActionInputs {
 	command: Command;
 	file: string;
-	apiKey: string;
+	/** API key for direct auth. When absent, the CLI uses OIDC via ACTIONS_ID_TOKEN_REQUEST_URL. */
+	apiKey?: string;
 	org?: string;
 	repo?: string;
 	cliVersion: string;

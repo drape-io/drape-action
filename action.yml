@@ -14,12 +14,12 @@ inputs:
     description: 'File path(s) or glob pattern(s) to upload (space or newline separated, e.g. "coverage/*.xml")'
     required: true
   api-key:
-    description: 'Drape API key'
-    required: true
+    description: 'Drape API key (not needed when using OIDC authentication)'
+    required: false
 
   # Organization/repo (auto-detected from github context)
   org:
-    description: 'Drape organization slug (default: derived from github.repository_owner)'
+    description: 'Drape organization slug (required for OIDC auth, otherwise derived from github.repository_owner)'
     required: false
   repo:
     description: 'Drape repository name (default: github.repository)'

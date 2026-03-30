@@ -9,7 +9,7 @@ const CLI_REPO = "drape-io/drape-cli";
 export async function installCli(version: string): Promise<string> {
 	const resolvedVersion = await resolveVersion(version);
 	const arch = detectArch();
-	const platform = "linux";
+	const platform = detectPlatform();
 
 	// Check cache first
 	const cached = toolCache.find("drape", resolvedVersion, arch);
@@ -72,6 +72,13 @@ async function resolveVersion(version: string): Promise<string> {
 	const resolved = tag.replace(/^v/, "");
 	core.info(`Resolved latest version: v${resolved}`);
 	return resolved;
+}
+
+function detectPlatform(): string {
+	const p = os.platform();
+	if (p === "darwin") return "darwin";
+	if (p === "win32") return "windows";
+	return "linux";
 }
 
 function detectArch(): string {

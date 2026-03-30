@@ -12,8 +12,8 @@ export async function postStickyComment(
 	const marker = `<!-- ${header} -->`;
 	const fullBody = `${marker}\n${body}`;
 
-	// Find existing comment with this marker
-	const { data: comments } = await octokit.rest.issues.listComments({
+	// Paginate to handle PRs with >100 comments
+	const comments = await octokit.paginate(octokit.rest.issues.listComments, {
 		owner,
 		repo,
 		issue_number: prNumber,

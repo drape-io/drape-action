@@ -4,13 +4,10 @@ import { formatRate } from "./comment.js";
 import type {
 	ActionInputs,
 	Command,
-	CoverageResult,
 	DrapeCliResponse,
-	LintResult,
-	ScanResult,
-	TestsResult,
 	UploadExecResult,
 } from "./types.js";
+import { asCoverage, asLint, asScan, asTests } from "./types.js";
 
 export function buildCliArgs(inputs: ActionInputs): string[] {
 	const files = inputs.file.split(/\s+/).filter(Boolean);
@@ -60,9 +57,9 @@ export async function runUpload(
 
 	const env: Record<string, string> = {
 		...process.env,
-		DRAPE_API_KEY: inputs.apiKey,
 		DRAPE_API_URL: inputs.apiUrl,
 	};
+	if (inputs.apiKey) env.DRAPE_API_KEY = inputs.apiKey;
 	if (inputs.org) env.DRAPE_ORG = inputs.org;
 	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
 
@@ -121,17 +118,15 @@ function logUploadSummary(
 
 		switch (command) {
 			case "coverage": {
-				const diff =
-					"coverage_diff" in r
-						? (r as CoverageResult).coverage_diff
-						: undefined;
+				const cr = asCoverage(r);
+				if (!cr) break;
+				const diff = cr.coverage_diff;
 				if (diff) {
 					const status = diff.passed ? "passed" : "failed";
 					core.info(
 						`Drape coverage: ${status} — base ${formatRate(diff.base_coverage_rate)}% → head ${formatRate(diff.head_coverage_rate)}% (${formatRate(diff.coverage_delta)}%), ${diff.regressed_lines_count} regressed lines ${url}`,
 					);
 				} else {
-					const cr = r as CoverageResult;
 					core.info(
 						`Drape coverage: ${cr.coverage_rate ?? "?"}% across ${cr.file_count ?? "?"} files ${url}`,
 					);
@@ -139,14 +134,16 @@ function logUploadSummary(
 				break;
 			}
 			case "tests": {
-				const tr = r as TestsResult;
+				const tr = asTests(r);
+				if (!tr) break;
 				core.info(
 					`Drape tests: ${tr.tests_ingested ?? 0} ingested, ${tr.failed_count ?? 0} failed, ${tr.suppressed_count ?? 0} suppressed, ${tr.unsuppressed_failure_count ?? 0} unsuppressed ${url}`,
 				);
 				break;
 			}
 			case "scan": {
-				const sr = r as ScanResult;
+				const sr = asScan(r);
+				if (!sr) break;
 				const label = sr.scan_name
 					? `Drape scan (${sr.scan_name})`
 					: "Drape scan";
@@ -168,14 +165,15 @@ function logUploadSummary(
 				break;
 			}
 			case "lint": {
-				const diff = "lint_diff" in r ? (r as LintResult).lint_diff : undefined;
+				const lr = asLint(r);
+				if (!lr) break;
+				const diff = lr.lint_diff;
 				if (diff) {
 					const status = diff.passed ? "passed" : "failed";
 					core.info(
 						`Drape lint: ${status} — ${diff.new_violation_count} new, ${diff.resolved_violation_count} resolved ${url}`,
 					);
 				} else {
-					const lr = r as LintResult;
 					core.info(
 						`Drape lint: ${lr.total_violations ?? 0} violations ${url}`,
 					);
