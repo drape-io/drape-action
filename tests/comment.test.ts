@@ -605,6 +605,20 @@ describe("generateComment", () => {
 			expect(body).not.toContain("Flaky");
 			expect(body).not.toContain("flaky");
 		});
+
+		it("shows fallback when all uploads have null results", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{ drape_url: "https://app.drape.io/r/1", result: null },
+					{ drape_url: "https://app.drape.io/r/2", result: null },
+				],
+			};
+			const body = generateComment("tests", 1, response, "");
+
+			expect(body).toContain("## Drape: Test Results");
+			expect(body).toContain("Upload failed");
+			expect(body).not.toContain("All tests passed");
+		});
 	});
 
 	// --- Scan ---
@@ -762,6 +776,17 @@ describe("generateComment", () => {
 
 			expect(body).toContain("15");
 			expect(body).toContain("high");
+		});
+
+		it("shows fallback when all uploads have null results", () => {
+			const response: DrapeCliResponse = {
+				uploads: [{ drape_url: "https://app.drape.io/r/1", result: null }],
+			};
+			const body = generateComment("scan", 1, response, "");
+
+			expect(body).toContain("## Drape: Security Scan");
+			expect(body).toContain("Upload failed");
+			expect(body).not.toContain("No new vulnerabilities");
 		});
 	});
 

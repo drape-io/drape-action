@@ -8,6 +8,10 @@ export interface Upload {
     result: UploadResult | null;
 }
 export type UploadResult = CoverageResult | TestsResult | ScanResult | LintResult;
+export declare function asCoverage(r: UploadResult | null | undefined): CoverageResult | null;
+export declare function asTests(r: UploadResult | null | undefined): TestsResult | null;
+export declare function asScan(r: UploadResult | null | undefined): ScanResult | null;
+export declare function asLint(r: UploadResult | null | undefined): LintResult | null;
 export interface CoverageResult {
     coverage_diff?: CoverageDiff;
     coverage_rate?: string;
@@ -101,6 +105,7 @@ export type Command = "coverage" | "tests" | "scan" | "lint";
 export interface ActionInputs {
     command: Command;
     file: string;
+    /** API key for direct auth. When absent, the CLI uses OIDC via ACTIONS_ID_TOKEN_REQUEST_URL. */
     apiKey?: string;
     org?: string;
     repo?: string;

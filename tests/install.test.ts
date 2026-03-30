@@ -15,6 +15,7 @@ vi.mock("node:fs", () => ({
 }));
 vi.mock("node:os", () => ({
 	arch: () => "x64",
+	platform: () => "linux",
 }));
 
 import * as fs from "node:fs";
@@ -128,6 +129,21 @@ describe("installCli", () => {
 		await expect(installCli("0.1.2")).rejects.toThrow(
 			"Checksum verification failed",
 		);
+	});
+
+	it("uses platform from os.platform() in download URL", async () => {
+		vi.mocked(toolCache.find).mockReturnValue("");
+		vi.mocked(toolCache.downloadTool)
+			.mockResolvedValueOnce("/tmp/tarball.tar.gz")
+			.mockResolvedValueOnce("/tmp/checksums.txt");
+
+		// Fail early at checksum — we just need to verify the URL
+		vi.mocked(fs.readFileSync).mockReturnValue("");
+
+		await expect(installCli("0.1.2")).rejects.toThrow();
+
+		const tarballUrl = vi.mocked(toolCache.downloadTool).mock.calls[0][0];
+		expect(tarballUrl).toContain("drape_linux_amd64.tar.gz");
 	});
 
 	it("throws when latest version cannot be resolved", async () => {

@@ -2,17 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockCreateComment = vi.fn();
 const mockUpdateComment = vi.fn();
-const mockListComments = vi.fn();
+const mockPaginate = vi.fn();
 
 vi.mock("@actions/github", () => ({
 	getOctokit: () => ({
 		rest: {
 			issues: {
-				listComments: mockListComments,
+				listComments: "listComments-endpoint",
 				createComment: mockCreateComment,
 				updateComment: mockUpdateComment,
 			},
 		},
+		paginate: mockPaginate,
 	}),
 }));
 
@@ -24,7 +25,7 @@ describe("postStickyComment", () => {
 	});
 
 	it("creates a new comment when none exists", async () => {
-		mockListComments.mockResolvedValue({ data: [] });
+		mockPaginate.mockResolvedValue([]);
 
 		await postStickyComment(
 			"token",
@@ -45,12 +46,10 @@ describe("postStickyComment", () => {
 	});
 
 	it("updates existing comment with matching marker", async () => {
-		mockListComments.mockResolvedValue({
-			data: [
-				{ id: 100, body: "<!-- drape-coverage -->\nold content" },
-				{ id: 101, body: "unrelated comment" },
-			],
-		});
+		mockPaginate.mockResolvedValue([
+			{ id: 100, body: "<!-- drape-coverage -->\nold content" },
+			{ id: 101, body: "unrelated comment" },
+		]);
 
 		await postStickyComment(
 			"token",
@@ -71,9 +70,9 @@ describe("postStickyComment", () => {
 	});
 
 	it("does not confuse different headers", async () => {
-		mockListComments.mockResolvedValue({
-			data: [{ id: 100, body: "<!-- drape-tests -->\ntest comment" }],
-		});
+		mockPaginate.mockResolvedValue([
+			{ id: 100, body: "<!-- drape-tests -->\ntest comment" },
+		]);
 
 		await postStickyComment(
 			"token",
@@ -86,5 +85,28 @@ describe("postStickyComment", () => {
 
 		expect(mockCreateComment).toHaveBeenCalled();
 		expect(mockUpdateComment).not.toHaveBeenCalled();
+	});
+
+	it("passes correct pagination params", async () => {
+		mockPaginate.mockResolvedValue([]);
+
+		await postStickyComment(
+			"token",
+			"drape-io",
+			"webapp",
+			42,
+			"drape-coverage",
+			"body",
+		);
+
+		expect(mockPaginate).toHaveBeenCalledWith(
+			"listComments-endpoint",
+			expect.objectContaining({
+				owner: "drape-io",
+				repo: "webapp",
+				issue_number: 42,
+				per_page: 100,
+			}),
+		);
 	});
 });

@@ -1,20 +1,29 @@
 import type {
 	CoverageDiff,
-	CoverageResult,
 	DrapeCliResponse,
 	FlakyTest,
 	LintDiff,
-	LintResult,
 	ScanDiff,
-	ScanResult,
-	TestsResult,
 	Upload,
 } from "./types.js";
+import { asCoverage, asLint, asScan, asTests } from "./types.js";
 
 type Command = "coverage" | "tests" | "scan" | "lint";
 
+const EMOJI_PASS = ":white_check_mark:";
+const EMOJI_FAIL = ":x:";
+const EMOJI_WARN = ":warning:";
+
 function titleWithGroup(base: string, group?: string): string {
 	return group ? `${base} — ${group}` : base;
+}
+
+function nullResultFallback(title: string, exitCode: number): string {
+	const msg =
+		exitCode !== 0
+			? `> ${EMOJI_FAIL} **Upload failed** — no result was produced`
+			: "> Upload completed but no result data available yet.";
+	return lines(`## ${title}`, "", msg);
 }
 
 /**
@@ -68,14 +77,10 @@ function generateCoverageComment(
 	commentTitle?: string,
 ): string {
 	// For batch uploads, the CLI attaches the merged result to uploads[0]
-	const result = uploads[0]?.result as CoverageResult | null;
+	const result = asCoverage(uploads[0]?.result);
 	const title = commentTitle ?? titleWithGroup("Drape: Coverage Report", group);
 	if (!result) {
-		const msg =
-			exitCode !== 0
-				? "> :x: **Upload failed** — no result was produced"
-				: "> Upload completed but no result data available yet.";
-		return lines(`## ${title}`, "", msg);
+		return nullResultFallback(title, exitCode);
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
@@ -154,14 +159,14 @@ function coverageSummaryLine(diff: CoverageDiff): string {
 	if (diff.passed === false) {
 		const reasons = (diff.failure_reasons ?? []).join(", ");
 		const detail = reasons ? `: ${reasons}` : "";
-		return `> :x: **Coverage check failed**${detail}`;
+		return `> ${EMOJI_FAIL} **Coverage check failed**${detail}`;
 	}
 
 	if (diff.regressed_lines_count > 0) {
-		return `> :white_check_mark: **Coverage check passed** — ${diff.regressed_lines_count} regressed line(s) detected`;
+		return `> ${EMOJI_PASS} **Coverage check passed** — ${diff.regressed_lines_count} regressed line(s) detected`;
 	}
 
-	return "> :white_check_mark: **Coverage check passed** — no regressions detected";
+	return `> ${EMOJI_PASS} **Coverage check passed** — no regressions detected`;
 }
 
 // --- Tests ---
@@ -178,10 +183,12 @@ function generateTestsComment(
 	let totalUnsuppressed = 0;
 	let totalFlaky = 0;
 	let allFlakyTests: FlakyTest[] = [];
+	let hasResults = false;
 
 	for (const upload of uploads) {
-		const r = upload.result as TestsResult | null;
+		const r = asTests(upload.result);
 		if (!r) continue;
+		hasResults = true;
 		totalIngested += r.tests_ingested ?? 0;
 		totalFailed += r.failed_count ?? 0;
 		totalSuppressed += r.suppressed_count ?? 0;
@@ -190,26 +197,32 @@ function generateTestsComment(
 		allFlakyTests = allFlakyTests.concat(r.flaky_tests ?? []);
 	}
 
-	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const title = commentTitle ?? titleWithGroup("Drape: Test Results", group);
+	if (!hasResults) {
+		return nullResultFallback(title, exitCode);
+	}
+
+	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const out: string[] = [`## ${title}`, ""];
 
 	// Summary line
 	if (totalUnsuppressed > 0) {
-		out.push(`> :x: **${totalUnsuppressed} unsuppressed test failure(s)**`);
+		out.push(
+			`> ${EMOJI_FAIL} **${totalUnsuppressed} unsuppressed test failure(s)**`,
+		);
 	} else if (totalFailed > 0 && totalUnsuppressed === 0) {
 		out.push(
-			`> :white_check_mark: **All ${totalFailed} failure(s) are suppressed** — passing CI`,
+			`> ${EMOJI_PASS} **All ${totalFailed} failure(s) are suppressed** — passing CI`,
 		);
 	} else {
-		out.push("> :white_check_mark: **All tests passed**");
+		out.push(`> ${EMOJI_PASS} **All tests passed**`);
 	}
 
 	// Flaky note
 	if (totalFlaky > 0) {
 		out.push("");
 		out.push(
-			`> :warning: **${totalFlaky} known flaky test(s) failed** — these are tracked but not blocking CI`,
+			`> ${EMOJI_WARN} **${totalFlaky} known flaky test(s) failed** — these are tracked but not blocking CI`,
 		);
 	}
 
@@ -266,10 +279,12 @@ function generateScanComment(
 	let allResolvedCves: ScanDiff["resolved_cves"] = [];
 	let allSlaViolations: ScanDiff["sla_violations"] = [];
 	let scanName = "";
+	let hasResults = false;
 
 	for (const upload of uploads) {
-		const r = upload.result as ScanResult | null;
+		const r = asScan(upload.result);
 		if (!r) continue;
+		hasResults = true;
 		if (!scanName && r.scan_name) scanName = r.scan_name;
 
 		const diff = r.scan_diff;
@@ -287,18 +302,23 @@ function generateScanComment(
 		}
 	}
 
-	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const defaultTitle = scanName
 		? `Drape: Security Scan — ${scanName}`
 		: "Drape: Security Scan";
-	const header = `## ${commentTitle ?? defaultTitle}`;
+	const title = commentTitle ?? defaultTitle;
+	if (!hasResults) {
+		return nullResultFallback(title, exitCode);
+	}
+
+	const drapeUrl = uploads[0]?.drape_url ?? "";
+	const header = `## ${title}`;
 	const out: string[] = [header, ""];
 
 	if (hasDiff) {
 		const totalNew = newCritical + newHigh + newMedium + newLow;
 
 		if (totalNew === 0) {
-			out.push("> :white_check_mark: **No new vulnerabilities found**");
+			out.push(`> ${EMOJI_PASS} **No new vulnerabilities found**`);
 		} else {
 			const parts: string[] = [];
 			if (newCritical > 0) parts.push(`${newCritical} critical`);
@@ -306,7 +326,7 @@ function generateScanComment(
 			if (newMedium > 0) parts.push(`${newMedium} medium`);
 			if (newLow > 0) parts.push(`${newLow} low`);
 			out.push(
-				`> :warning: **${totalNew} new vulnerabilities found** (${parts.join(", ")})`,
+				`> ${EMOJI_WARN} **${totalNew} new vulnerabilities found** (${parts.join(", ")})`,
 			);
 		}
 		out.push("");
@@ -372,7 +392,7 @@ function generateScanComment(
 		}
 	} else {
 		// No diff data — show totals
-		const r = uploads[0]?.result as ScanResult | null;
+		const r = asScan(uploads[0]?.result);
 		const totalVulns = r?.total_vulnerabilities ?? 0;
 		const highest =
 			r?.unsuppressed_highest_severity ?? r?.highest_severity ?? "none";
@@ -397,22 +417,14 @@ function generateLintComment(
 	group?: string,
 	commentTitle?: string,
 ): string {
-	const result = uploads[0]?.result as LintResult | null;
+	const result = asLint(uploads[0]?.result);
+	const title = commentTitle ?? titleWithGroup("Drape: Lint Report", group);
 	if (!result) {
-		const msg =
-			exitCode !== 0
-				? "> :x: **Upload failed** — no result was produced"
-				: "> Upload completed but no result data available yet.";
-		return lines(
-			`## ${commentTitle ?? titleWithGroup("Drape: Lint Report", group)}`,
-			"",
-			msg,
-		);
+		return nullResultFallback(title, exitCode);
 	}
 
 	const drapeUrl = uploads[0]?.drape_url ?? "";
 	const diff = result.lint_diff;
-	const title = commentTitle ?? titleWithGroup("Drape: Lint Report", group);
 	const out: string[] = [`## ${title}`, ""];
 
 	if (diff) {
@@ -478,9 +490,9 @@ function lintSummaryLine(diff: LintDiff): string {
 	if (diff.passed === false) {
 		const reasons = (diff.failure_reasons ?? []).join(", ");
 		const detail = reasons ? ` — ${reasons}` : "";
-		return `> :x: **Lint check failed**${detail}`;
+		return `> ${EMOJI_FAIL} **Lint check failed**${detail}`;
 	}
-	return "> :white_check_mark: **Lint check passed**";
+	return `> ${EMOJI_PASS} **Lint check passed**`;
 }
 
 // --- Error ---
@@ -504,7 +516,7 @@ export function generateErrorComment(
 	const out: string[] = [
 		`## ${title}`,
 		"",
-		`> :x: **Upload failed** with exit code ${exitCode}`,
+		`> ${EMOJI_FAIL} **Upload failed** with exit code ${exitCode}`,
 	];
 
 	if (stderr.trim()) {
