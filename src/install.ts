@@ -6,8 +6,11 @@ import * as toolCache from "@actions/tool-cache";
 
 const CLI_REPO = "drape-io/drape-cli";
 
-export async function installCli(version: string): Promise<string> {
-	const resolvedVersion = await resolveVersion(version);
+export async function installCli(
+	version: string,
+	githubToken?: string,
+): Promise<string> {
+	const resolvedVersion = await resolveVersion(version, githubToken);
 	const arch = detectArch();
 	const platform = "linux";
 
@@ -49,13 +52,22 @@ export async function installCli(version: string): Promise<string> {
 	return cachedDir;
 }
 
-async function resolveVersion(version: string): Promise<string> {
+async function resolveVersion(
+	version: string,
+	githubToken?: string,
+): Promise<string> {
 	if (version !== "latest") {
 		return version.replace(/^v/, "");
 	}
 
+	const headers: Record<string, string> = {};
+	if (githubToken) {
+		headers.Authorization = `token ${githubToken}`;
+	}
+
 	const response = await fetch(
 		`https://api.github.com/repos/${CLI_REPO}/releases/latest`,
+		{ headers },
 	);
 	if (!response.ok) {
 		throw new Error(

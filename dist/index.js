@@ -32952,8 +32952,8 @@ const os = __importStar(__nccwpck_require__(8161));
 const core = __importStar(__nccwpck_require__(7484));
 const toolCache = __importStar(__nccwpck_require__(3472));
 const CLI_REPO = "drape-io/drape-cli";
-async function installCli(version) {
-    const resolvedVersion = await resolveVersion(version);
+async function installCli(version, githubToken) {
+    const resolvedVersion = await resolveVersion(version, githubToken);
     const arch = detectArch();
     const platform = "linux";
     // Check cache first
@@ -32978,11 +32978,15 @@ async function installCli(version) {
     core.info(`Installed Drape CLI v${resolvedVersion}`);
     return cachedDir;
 }
-async function resolveVersion(version) {
+async function resolveVersion(version, githubToken) {
     if (version !== "latest") {
         return version.replace(/^v/, "");
     }
-    const response = await fetch(`https://api.github.com/repos/${CLI_REPO}/releases/latest`);
+    const headers = {};
+    if (githubToken) {
+        headers.Authorization = `token ${githubToken}`;
+    }
+    const response = await fetch(`https://api.github.com/repos/${CLI_REPO}/releases/latest`, { headers });
     if (!response.ok) {
         throw new Error(`Failed to resolve latest Drape CLI version: ${response.statusText}`);
     }
@@ -33068,7 +33072,7 @@ const upload_js_1 = __nccwpck_require__(1550);
 async function run() {
     const inputs = (0, inputs_js_1.getInputs)();
     // Step 1: Install CLI
-    await (0, install_js_1.installCli)(inputs.cliVersion);
+    await (0, install_js_1.installCli)(inputs.cliVersion, inputs.githubToken);
     // Step 2: Run upload
     const result = await (0, upload_js_1.runUpload)(inputs);
     // Step 3: Set outputs
