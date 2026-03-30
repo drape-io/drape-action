@@ -10,7 +10,7 @@ async function run(): Promise<void> {
 	const inputs = getInputs();
 
 	// Step 1: Install CLI
-	await installCli(inputs.cliVersion);
+	await installCli(inputs.cliVersion, inputs.githubToken);
 
 	// Step 2: Run upload
 	const result = await runUpload(inputs);

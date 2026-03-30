@@ -1,1 +1,1 @@
-export declare function installCli(version: string): Promise<string>;
+export declare function installCli(version: string, githubToken?: string): Promise<string>;

@@ -92,11 +92,23 @@ describe("installCli", () => {
 
 		expect(fetch).toHaveBeenCalledWith(
 			"https://api.github.com/repos/drape-io/drape-cli/releases/latest",
+			{ headers: {} },
 		);
 		expect(toolCache.find).toHaveBeenCalledWith(
 			"drape",
 			"0.1.2",
 			expect.any(String),
+		);
+	});
+
+	it("uses auth header when githubToken is provided", async () => {
+		vi.mocked(toolCache.find).mockReturnValue("/cache/drape/0.1.2/amd64");
+
+		await installCli("latest", "ghp_test123");
+
+		expect(fetch).toHaveBeenCalledWith(
+			"https://api.github.com/repos/drape-io/drape-cli/releases/latest",
+			{ headers: { Authorization: "token ghp_test123" } },
 		);
 	});
 
