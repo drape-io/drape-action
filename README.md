@@ -179,6 +179,24 @@ just preview          # preview all comment templates locally
 just post-samples 5   # post sample comments on PR #5
 ```
 
+## Releases
+
+Releases are cut by pushing a `vX.Y.Z` tag. A GitHub Actions workflow (`.github/workflows/release.yml`) picks up the tag and creates a GitHub Release with auto-generated notes.
+
+From a clean `main`:
+
+```bash
+just release v1.0.0
+```
+
+This recipe:
+
+1. Validates the version format (`vX.Y.Z`) and confirms you're on `main` with a clean tree that's up to date with `origin/main`.
+2. Creates and pushes an annotated `vX.Y.Z` tag.
+3. Moves the rolling major tag (`vX`) so `drape-io/drape-action@v1` resolves to the newest `v1.y.z`. Force-push is intentional — this is the standard GitHub Actions convention for major-version refs.
+
+Bump `MAJOR` on breaking changes to Action inputs/outputs, `MINOR` on additive features (new inputs, new optional behaviors), `PATCH` on bug fixes.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).

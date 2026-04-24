@@ -55,3 +55,54 @@ post-samples pr:
 
 # Run the pre-commit checks (same as CI)
 check: lint typecheck test dist-check
+
+# Cut a release. Creates and pushes vX.Y.Z and moves the rolling vX major
+# tag. The release workflow (.github/workflows/release.yml) creates the
+# GitHub Release with auto-generated notes.
+#
+# Usage: just release v1.0.0
+release VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [[ ! "{{VERSION}}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "error: VERSION must be v<major>.<minor>.<patch> (e.g., v1.0.0)"
+        exit 1
+    fi
+
+    branch=$(git branch --show-current)
+    if [ "$branch" != "main" ]; then
+        echo "error: must release from main (currently on $branch)"
+        exit 1
+    fi
+
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "error: working tree is dirty — commit or stash first"
+        exit 1
+    fi
+
+    git fetch origin main --tags
+    if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+        echo "error: local main is not up to date with origin/main"
+        exit 1
+    fi
+
+    if git rev-parse "{{VERSION}}" >/dev/null 2>&1; then
+        echo "error: tag {{VERSION}} already exists"
+        exit 1
+    fi
+
+    major=$(echo "{{VERSION}}" | grep -oE '^v[0-9]+')
+
+    git tag -a "{{VERSION}}" -m "{{VERSION}}"
+    git push origin "{{VERSION}}"
+
+    # Move the rolling major tag so drape-io/drape-action@v1 resolves to
+    # this release. Force-push is intentional — this is the standard
+    # convention for major-version action refs.
+    git tag -fa "$major" -m "$major"
+    git push origin "$major" --force
+
+    echo ""
+    echo "Released {{VERSION}} (and updated $major)."
+    echo "  https://github.com/drape-io/drape-action/releases/tag/{{VERSION}}"
