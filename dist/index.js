@@ -32875,6 +32875,28 @@ function getInputs() {
     const suffix = group ?? scanName;
     const commentHeader = core.getInput("comment-header") ||
         (suffix ? `drape-${command}-${suffix}` : `drape-${command}`);
+    const totalShardsRaw = core.getInput("total-shards");
+    let totalShards;
+    if (totalShardsRaw) {
+        // Reject non-integer strings BEFORE parseInt — "3.5" would silently
+        // truncate to 3 and the server would over-wait for a phantom shard.
+        if (!/^\d+$/.test(totalShardsRaw)) {
+            throw new Error(`Invalid total-shards: "${totalShardsRaw}". Must be a positive integer >= 2 (typically your shard count).`);
+        }
+        const parsed = Number.parseInt(totalShardsRaw, 10);
+        if (parsed < 2) {
+            throw new Error(`Invalid total-shards: "${totalShardsRaw}". Must be >= 2 for batch mode; omit the input for single-shard uploads.`);
+        }
+        totalShards = parsed;
+    }
+    const shardKey = core.getInput("shard-key") || undefined;
+    const drapeRunId = core.getInput("drape-run-id") || undefined;
+    // Only enforce on coverage — for non-coverage commands, the flag is
+    // dropped and a soft warning fires from runUpload (matches total-shards
+    // behavior). Enforcing here would hard-fail copy-paste configs.
+    if (command === "coverage" && shardKey && totalShards === undefined) {
+        throw new Error("shard-key requires total-shards to be set (e.g., total-shards: ${{ strategy.job-total }} or your shard count).");
+    }
     return {
         command: command,
         file: core.getInput("file", { required: true }),
@@ -32890,6 +32912,9 @@ function getInputs() {
         format: core.getInput("format") || undefined,
         pathPrefix: core.getInput("path-prefix") || undefined,
         targetBranch: core.getInput("target-branch") || undefined,
+        shardKey,
+        totalShards,
+        drapeRunId,
         scanName,
         scanTag: core.getInput("scan-tag") || undefined,
         scanType: core.getInput("scan-type") || undefined,
@@ -33238,6 +33263,13 @@ function buildCliArgs(inputs) {
                 args.push("--target-branch", inputs.targetBranch);
             if (inputs.group)
                 args.push("--group", inputs.group);
+            if (inputs.totalShards !== undefined) {
+                args.push("--total-shards", String(inputs.totalShards));
+            }
+            if (inputs.shardKey)
+                args.push("--shard-key", inputs.shardKey);
+            if (inputs.drapeRunId)
+                args.push("--drape-run-id", inputs.drapeRunId);
             break;
         case "tests":
             if (inputs.format)
@@ -33246,6 +33278,8 @@ function buildCliArgs(inputs) {
                 args.push("--job-name", inputs.jobName);
             if (inputs.group)
                 args.push("--group", inputs.group);
+            if (inputs.drapeRunId)
+                args.push("--drape-run-id", inputs.drapeRunId);
             break;
         case "scan":
             if (inputs.format)
@@ -33269,6 +33303,15 @@ function buildCliArgs(inputs) {
     return args;
 }
 async function runUpload(inputs) {
+    if (inputs.command !== "coverage" &&
+        (inputs.totalShards !== undefined || inputs.shardKey)) {
+        core.warning(`'total-shards' and 'shard-key' are only used with command: coverage; ignoring for command: ${inputs.command}.`);
+    }
+    if (inputs.drapeRunId &&
+        inputs.command !== "coverage" &&
+        inputs.command !== "tests") {
+        core.warning(`'drape-run-id' is only used with coverage or tests; ignoring for command: ${inputs.command}.`);
+    }
     const args = buildCliArgs(inputs);
     const env = {
         ...process.env,

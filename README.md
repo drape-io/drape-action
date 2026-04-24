@@ -60,6 +60,37 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
     api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
+### Advanced: Batched coverage (sharded tests)
+
+When a CI run shards tests across multiple jobs, set `total-shards` to the shard count so the server merges partial coverage into one snapshot and posts a single PR comment. Use `job-name` to differentiate shards in the Drape dashboard:
+
+```yaml
+test:
+  strategy:
+    matrix:
+      shard: [1, 2, 3, 4]
+  steps:
+    - run: pytest --shard=${{ matrix.shard }}/4
+    - uses: drape-io/drape-action@v1
+      if: always()
+      continue-on-error: true
+      with:
+        command: coverage
+        file: coverage.xml
+        total-shards: 4
+        group: backend                              # logical coverage group
+        job-name: backend (${{ matrix.shard }}/4)   # unique per shard
+        api-key: ${{ secrets.DRAPE_API_KEY }}
+```
+
+Result: one merged PR comment across all 4 shards (instead of 4 separate comments).
+
+If your shard count is dynamic, `total-shards: ${{ strategy.job-total }}` works too.
+
+With default `wait: true`, each shard blocks until all `total-shards` shards arrive (or the 5-min server-side reaper fires if a shard crashes). Budget CI minutes accordingly. `shard-key` is usually auto-derived from `GITHUB_RUN_ID`; set it manually only if auto-detection can't produce a unique key.
+
+**Drape-triggered runs.** If Drape triggers a CI workflow (e.g., burn-in or bisect), it passes `DRAPE_RUN_ID` as an environment variable — the CLI picks it up automatically, so you usually don't need to set `drape-run-id` explicitly. Set the input only when you want to override the env-derived value.
+
 ## Inputs
 
 | Input | Required | Default | Description |
@@ -75,6 +106,7 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
 | `timeout` | No | `120` | Max wait time in seconds |
 | `verbose` | No | `false` | Enable verbose CLI output |
 | `group` | No | | Group label(s) |
+| `drape-run-id` | No | | Correlation ID for Drape-triggered CI runs (coverage/tests only; env fallback: `DRAPE_RUN_ID`) |
 | `format` | No | | File format (auto-detected for some types) |
 | `comment` | No | `true` | Post a PR comment with results |
 | `comment-header` | No | `drape-{command}` | Sticky comment identifier |
@@ -86,6 +118,8 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
 |-------|-------------|
 | `path-prefix` | Path prefix mapping for coverage files |
 | `target-branch` | Target branch for PR diff (auto-detected) |
+| `shard-key` | Shared ID across sibling matrix shards (auto-derived from `GITHUB_RUN_ID`) |
+| `total-shards` | Number of shards across all CI jobs; enables server-side merge (must be >= 2) |
 
 ### Scan-specific
 
