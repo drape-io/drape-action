@@ -63,6 +63,19 @@ inputs:
     description: 'Target branch for PR diff (auto-detected)'
     required: false
 
+  # Batch (coverage fan-in)
+  shard-key:
+    description: 'Shared identifier across sibling matrix shards (auto-derived from GITHUB_RUN_ID when unset)'
+    required: false
+  total-shards:
+    description: 'Total coverage shards across all CI jobs in this run; must be >= 2 (coverage only)'
+    required: false
+
+  # Drape-triggered run correlation
+  drape-run-id:
+    description: 'Drape run ID to correlate triggered CI runs; only used with coverage or tests (env fallback: DRAPE_RUN_ID)'
+    required: false
+
   # Scan-specific
   scan-name:
     description: 'Scan name (e.g. docker image name)'

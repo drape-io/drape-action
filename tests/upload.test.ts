@@ -154,6 +154,56 @@ describe("buildCliArgs", () => {
 		expect(args).not.toContain("--scan-name");
 		expect(args).not.toContain("--scan-tag");
 	});
+
+	it("forwards --shard-key, --total-shards, --drape-run-id on coverage", () => {
+		const args = buildCliArgs(
+			makeInputs({ totalShards: 3, shardKey: "foo", drapeRunId: "run-42" }),
+		);
+		expect(args).toContain("--total-shards");
+		expect(args).toContain("3");
+		expect(args).toContain("--shard-key");
+		expect(args).toContain("foo");
+		expect(args).toContain("--drape-run-id");
+		expect(args).toContain("run-42");
+	});
+
+	it("omits batch flags on coverage when not set", () => {
+		const args = buildCliArgs(makeInputs());
+		expect(args).not.toContain("--total-shards");
+		expect(args).not.toContain("--shard-key");
+		expect(args).not.toContain("--drape-run-id");
+	});
+
+	it("forwards only --drape-run-id on tests command", () => {
+		const args = buildCliArgs(
+			makeInputs({
+				command: "tests",
+				file: "r.xml",
+				totalShards: 3,
+				shardKey: "foo",
+				drapeRunId: "run-42",
+			}),
+		);
+		expect(args).toContain("--drape-run-id");
+		expect(args).toContain("run-42");
+		expect(args).not.toContain("--total-shards");
+		expect(args).not.toContain("--shard-key");
+	});
+
+	it("does not forward batch or run-id flags for scan command", () => {
+		const args = buildCliArgs(
+			makeInputs({
+				command: "scan",
+				file: "s.sarif",
+				totalShards: 3,
+				shardKey: "foo",
+				drapeRunId: "run-42",
+			}),
+		);
+		expect(args).not.toContain("--total-shards");
+		expect(args).not.toContain("--shard-key");
+		expect(args).not.toContain("--drape-run-id");
+	});
 });
 
 describe("runUpload", () => {
@@ -200,5 +250,72 @@ describe("runUpload", () => {
 		expect(core.warning).toHaveBeenCalledWith(
 			"Failed to parse CLI JSON output",
 		);
+	});
+
+	it("warns when total-shards is set on a non-coverage command", async () => {
+		vi.mocked(exec.getExecOutput).mockResolvedValue({
+			exitCode: 0,
+			stdout: '{"uploads": []}',
+			stderr: "",
+		});
+
+		await runUpload(
+			makeInputs({ command: "tests", file: "r.xml", totalShards: 3 }),
+		);
+		expect(core.warning).toHaveBeenCalledWith(
+			expect.stringContaining(
+				"'total-shards' and 'shard-key' are only used with command: coverage",
+			),
+		);
+	});
+
+	it("warns when shard-key alone is set on a non-coverage command", async () => {
+		vi.mocked(exec.getExecOutput).mockResolvedValue({
+			exitCode: 0,
+			stdout: '{"uploads": []}',
+			stderr: "",
+		});
+
+		await runUpload(
+			makeInputs({ command: "tests", file: "r.xml", shardKey: "my-key" }),
+		);
+		expect(core.warning).toHaveBeenCalledWith(
+			expect.stringContaining(
+				"'total-shards' and 'shard-key' are only used with command: coverage",
+			),
+		);
+	});
+
+	it("warns when drape-run-id is set on scan or lint", async () => {
+		vi.mocked(exec.getExecOutput).mockResolvedValue({
+			exitCode: 0,
+			stdout: '{"uploads": []}',
+			stderr: "",
+		});
+
+		await runUpload(
+			makeInputs({ command: "scan", file: "s.sarif", drapeRunId: "run-42" }),
+		);
+		expect(core.warning).toHaveBeenCalledWith(
+			expect.stringContaining(
+				"'drape-run-id' is only used with coverage or tests",
+			),
+		);
+	});
+
+	it("does not warn when drape-run-id is set on tests", async () => {
+		vi.mocked(exec.getExecOutput).mockResolvedValue({
+			exitCode: 0,
+			stdout: '{"uploads": []}',
+			stderr: "",
+		});
+
+		await runUpload(
+			makeInputs({ command: "tests", file: "r.xml", drapeRunId: "run-42" }),
+		);
+		const warnCalls = vi.mocked(core.warning).mock.calls;
+		expect(
+			warnCalls.some((call) => String(call[0]).includes("drape-run-id")),
+		).toBe(false);
 	});
 });

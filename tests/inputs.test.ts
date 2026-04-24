@@ -119,4 +119,72 @@ describe("getInputs", () => {
 		const inputs = getInputs();
 		expect(inputs.commentHeader).toBe("drape-scan-myapp");
 	});
+
+	it("parses shard-key, total-shards, and drape-run-id", () => {
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "coverage";
+			if (name === "file") return "coverage.xml";
+			if (name === "api-key") return "tok";
+			if (name === "total-shards") return "3";
+			if (name === "shard-key") return "my-key";
+			if (name === "drape-run-id") return "run-42";
+			return "";
+		});
+
+		const inputs = getInputs();
+		expect(inputs.totalShards).toBe(3);
+		expect(inputs.shardKey).toBe("my-key");
+		expect(inputs.drapeRunId).toBe("run-42");
+	});
+
+	it("leaves new batch inputs undefined when not set", () => {
+		const inputs = getInputs();
+		expect(inputs.totalShards).toBeUndefined();
+		expect(inputs.shardKey).toBeUndefined();
+		expect(inputs.drapeRunId).toBeUndefined();
+	});
+
+	it.each([
+		{ label: "non-numeric", value: "abc" },
+		{ label: "zero", value: "0" },
+		{ label: "one", value: "1" },
+		{ label: "negative", value: "-1" },
+		{ label: "decimal", value: "3.5" },
+	])("rejects $label total-shards value", ({ value }) => {
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "coverage";
+			if (name === "file") return "coverage.xml";
+			if (name === "api-key") return "tok";
+			if (name === "total-shards") return value;
+			return "";
+		});
+
+		expect(() => getInputs()).toThrow(/Invalid total-shards/);
+	});
+
+	it("rejects shard-key without total-shards on coverage", () => {
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "coverage";
+			if (name === "file") return "coverage.xml";
+			if (name === "api-key") return "tok";
+			if (name === "shard-key") return "my-key";
+			return "";
+		});
+
+		expect(() => getInputs()).toThrow(/shard-key requires total-shards/);
+	});
+
+	it("allows shard-key without total-shards on non-coverage commands", () => {
+		// Non-coverage commands warn-and-drop the flag (see runUpload),
+		// matching total-shards behavior. No parse-time throw.
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "tests";
+			if (name === "file") return "r.xml";
+			if (name === "api-key") return "tok";
+			if (name === "shard-key") return "my-key";
+			return "";
+		});
+
+		expect(() => getInputs()).not.toThrow();
+	});
 });

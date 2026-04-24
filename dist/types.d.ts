@@ -113,6 +113,9 @@ export interface ActionInputs {
     format?: string;
     pathPrefix?: string;
     targetBranch?: string;
+    shardKey?: string;
+    totalShards?: number;
+    drapeRunId?: string;
     scanName?: string;
     scanTag?: string;
     scanType?: string;

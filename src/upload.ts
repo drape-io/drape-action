@@ -30,11 +30,17 @@ export function buildCliArgs(inputs: ActionInputs): string[] {
 			if (inputs.targetBranch)
 				args.push("--target-branch", inputs.targetBranch);
 			if (inputs.group) args.push("--group", inputs.group);
+			if (inputs.totalShards !== undefined) {
+				args.push("--total-shards", String(inputs.totalShards));
+			}
+			if (inputs.shardKey) args.push("--shard-key", inputs.shardKey);
+			if (inputs.drapeRunId) args.push("--drape-run-id", inputs.drapeRunId);
 			break;
 		case "tests":
 			if (inputs.format) args.push("--format", inputs.format);
 			if (inputs.jobName) args.push("--job-name", inputs.jobName);
 			if (inputs.group) args.push("--group", inputs.group);
+			if (inputs.drapeRunId) args.push("--drape-run-id", inputs.drapeRunId);
 			break;
 		case "scan":
 			if (inputs.format) args.push("--format", inputs.format);
@@ -56,6 +62,24 @@ export function buildCliArgs(inputs: ActionInputs): string[] {
 export async function runUpload(
 	inputs: ActionInputs,
 ): Promise<UploadExecResult> {
+	if (
+		inputs.command !== "coverage" &&
+		(inputs.totalShards !== undefined || inputs.shardKey)
+	) {
+		core.warning(
+			`'total-shards' and 'shard-key' are only used with command: coverage; ignoring for command: ${inputs.command}.`,
+		);
+	}
+	if (
+		inputs.drapeRunId &&
+		inputs.command !== "coverage" &&
+		inputs.command !== "tests"
+	) {
+		core.warning(
+			`'drape-run-id' is only used with coverage or tests; ignoring for command: ${inputs.command}.`,
+		);
+	}
+
 	const args = buildCliArgs(inputs);
 
 	const env: Record<string, string> = {
