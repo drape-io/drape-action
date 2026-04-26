@@ -58,7 +58,7 @@ export function getInputs(): ActionInputs {
 		cliVersion: core.getInput("cli-version") || "latest",
 		apiUrl: core.getInput("api-url") || "https://app.drape.io",
 		wait: core.getBooleanInput("wait"),
-		waitTimeout: core.getInput("wait-timeout") || "3m",
+		waitTimeout: core.getInput("wait-timeout") || "10m",
 		verbose: core.getBooleanInput("verbose"),
 		group,
 		format: core.getInput("format") || undefined,
