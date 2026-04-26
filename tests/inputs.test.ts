@@ -22,7 +22,7 @@ describe("getInputs", () => {
 				"api-key": "drape-key-123",
 				"cli-version": "latest",
 				"api-url": "https://app.drape.io",
-				timeout: "120",
+				"wait-timeout": "3m",
 				"github-token": "gh-token",
 			};
 			return defaults[name] ?? "";
@@ -89,9 +89,21 @@ describe("getInputs", () => {
 		expect(inputs.comment).toBe(true);
 	});
 
-	it("parses timeout as number", () => {
+	it("parses wait-timeout as duration string", () => {
 		const inputs = getInputs();
-		expect(inputs.timeout).toBe(120);
+		expect(inputs.waitTimeout).toBe("3m");
+	});
+
+	it("defaults wait-timeout to 3m when unset", () => {
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "coverage";
+			if (name === "file") return "coverage.xml";
+			if (name === "api-key") return "tok";
+			return "";
+		});
+
+		const inputs = getInputs();
+		expect(inputs.waitTimeout).toBe("3m");
 	});
 
 	it("includes group in default comment header", () => {

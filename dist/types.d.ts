@@ -107,7 +107,7 @@ export interface ActionInputs {
     cliVersion: string;
     apiUrl: string;
     wait: boolean;
-    timeout: number;
+    waitTimeout: string;
     verbose: boolean;
     group?: string;
     format?: string;

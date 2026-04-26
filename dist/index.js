@@ -32906,7 +32906,7 @@ function getInputs() {
         cliVersion: core.getInput("cli-version") || "latest",
         apiUrl: core.getInput("api-url") || "https://app.drape.io",
         wait: core.getBooleanInput("wait"),
-        timeout: Number.parseInt(core.getInput("timeout") || "120", 10),
+        waitTimeout: core.getInput("wait-timeout") || "3m",
         verbose: core.getBooleanInput("verbose"),
         group,
         format: core.getInput("format") || undefined,
@@ -33249,7 +33249,7 @@ function buildCliArgs(inputs) {
     const files = inputs.file.split(/\s+/).filter(Boolean);
     const args = ["upload", inputs.command, ...files, "--quiet", "--json"];
     args.push(`--wait=${inputs.wait}`);
-    args.push("--timeout", String(inputs.timeout));
+    args.push("--wait-timeout", inputs.waitTimeout);
     if (inputs.verbose) {
         args.push("--verbose");
     }

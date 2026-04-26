@@ -40,10 +40,10 @@ inputs:
     description: 'Wait for server-side processing'
     required: false
     default: 'true'
-  timeout:
-    description: 'Max wait time in seconds'
+  wait-timeout:
+    description: 'Max wait time as a Go duration (e.g. 90s, 3m, 10m)'
     required: false
-    default: '120'
+    default: '3m'
   verbose:
     description: 'Enable verbose CLI output'
     required: false
