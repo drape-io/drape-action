@@ -17,7 +17,7 @@ export function buildCliArgs(inputs: ActionInputs): string[] {
 	const args = ["upload", inputs.command, ...files, "--quiet", "--json"];
 
 	args.push(`--wait=${inputs.wait}`);
-	args.push("--timeout", String(inputs.timeout));
+	args.push("--wait-timeout", inputs.waitTimeout);
 
 	if (inputs.verbose) {
 		args.push("--verbose");

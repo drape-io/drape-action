@@ -103,7 +103,7 @@ With default `wait: true`, each shard blocks until all `total-shards` shards arr
 | `cli-version` | No | `latest` | Drape CLI version |
 | `api-url` | No | `https://app.drape.io` | Drape API URL |
 | `wait` | No | `true` | Wait for server-side processing |
-| `timeout` | No | `120` | Max wait time in seconds |
+| `wait-timeout` | No | `3m` | Max wait time, e.g. `90s`, `3m`, `10m`, `1h30m` |
 | `verbose` | No | `false` | Enable verbose CLI output |
 | `group` | No | | Group label(s) |
 | `drape-run-id` | No | | Correlation ID for Drape-triggered CI runs (coverage/tests only; env fallback: `DRAPE_RUN_ID`) |

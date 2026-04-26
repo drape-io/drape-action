@@ -22,7 +22,7 @@ function makeInputs(overrides: Partial<ActionInputs> = {}): ActionInputs {
 		cliVersion: "latest",
 		apiUrl: "https://app.drape.io",
 		wait: true,
-		timeout: 120,
+		waitTimeout: "3m",
 		verbose: false,
 		failOnVulnerabilities: false,
 		comment: true,
@@ -42,8 +42,8 @@ describe("buildCliArgs", () => {
 			"--quiet",
 			"--json",
 			"--wait=true",
-			"--timeout",
-			"120",
+			"--wait-timeout",
+			"3m",
 		]);
 	});
 
@@ -123,8 +123,8 @@ describe("buildCliArgs", () => {
 			"--quiet",
 			"--json",
 			"--wait=true",
-			"--timeout",
-			"120",
+			"--wait-timeout",
+			"3m",
 		]);
 	});
 
