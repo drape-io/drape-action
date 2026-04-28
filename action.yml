@@ -43,7 +43,7 @@ inputs:
   wait-timeout:
     description: 'Max wait time, e.g. 90s, 3m, 10m, 1h30m'
     required: false
-    default: '3m'
+    default: '10m'
   verbose:
     description: 'Enable verbose CLI output'
     required: false
