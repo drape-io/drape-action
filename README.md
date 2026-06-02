@@ -48,6 +48,38 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
     api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
+Native scanner JSON preserves richer fix-state metadata than SARIF (the
+SARIF path drops `fixed` / `not-fixed` / `wont-fix` distinctions). Prefer
+`grype-json` or `trivy-json` when uploading scans Drape consumes directly:
+
+```yaml
+- run: grype dir:. -o json --file scan.grype.json
+- uses: drape-io/drape-action@v1
+  if: always()
+  continue-on-error: true
+  with:
+    command: scan
+    file: scan.grype.json
+    format: grype-json
+    scan-name: my-app
+    scan-type: image
+    api-key: ${{ secrets.DRAPE_API_KEY }}
+```
+
+```yaml
+- run: trivy image my-app:latest -f json -o scan.trivy.json
+- uses: drape-io/drape-action@v1
+  if: always()
+  continue-on-error: true
+  with:
+    command: scan
+    file: scan.trivy.json
+    format: trivy-json
+    scan-name: my-app
+    scan-type: image
+    api-key: ${{ secrets.DRAPE_API_KEY }}
+```
+
 ### Lint
 
 ```yaml

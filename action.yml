@@ -54,7 +54,7 @@ inputs:
 
   # Coverage-specific
   format:
-    description: 'File format (coverage: cobertura/lcov/go, tests: junit/ctrf, scan: sarif/cyclonedx, lint: sarif)'
+    description: 'File format (coverage: cobertura/lcov/go, tests: junit/ctrf, scan: sarif/cyclonedx/grype-json/trivy-json, lint: sarif)'
     required: false
   path-prefix:
     description: 'Path prefix mapping for coverage files'
