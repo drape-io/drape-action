@@ -774,6 +774,62 @@ describe("generateComment", () => {
 			expect(body).not.toContain("No baseline scan found");
 		});
 
+		// Gating on new CVEs must not hide older ones that still need action.
+		it("surfaces existing unsuppressed vulnerabilities that don't block the PR", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							unsuppressed_vulnerabilities: 4,
+							scan_diff: {
+								passed: true,
+								new_critical_count: 0,
+								new_high_count: 0,
+								new_medium_count: 1,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								unchanged_cves_count: 55,
+								new_cves: [],
+								resolved_cves: [],
+								sla_violations: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 0, response, "");
+
+			expect(body).toContain("3 existing vulnerabilities still need action");
+		});
+
+		it("omits the existing line when every unsuppressed vulnerability is new", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							unsuppressed_vulnerabilities: 1,
+							scan_diff: {
+								new_critical_count: 0,
+								new_high_count: 1,
+								new_medium_count: 0,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								unchanged_cves_count: 0,
+								new_cves: [],
+								resolved_cves: [],
+								sla_violations: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 1, response, "");
+
+			expect(body).not.toContain("existing vulnerabilit");
+		});
+
 		it("counts won't-fix findings as reported but not blocking", () => {
 			const response: DrapeCliResponse = {
 				uploads: [

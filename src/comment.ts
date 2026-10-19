@@ -262,6 +262,8 @@ function generateScanComment(
 	let newLow = 0;
 	let suppressedTotal = 0;
 	let nonActionableTotal = 0;
+	let unsuppressedTotal = 0;
+	let newUnknown = 0;
 	let unchangedTotal = 0;
 	let failureReasons: string[] = [];
 	let allNewCves: ScanDiff["new_cves"] = [];
@@ -273,6 +275,7 @@ function generateScanComment(
 		const r = upload.result as ScanResult | null;
 		if (!r) continue;
 		if (!scanName && r.scan_name) scanName = r.scan_name;
+		unsuppressedTotal += r.unsuppressed_vulnerabilities ?? 0;
 
 		const diff = r.scan_diff;
 		if (diff) {
@@ -281,6 +284,7 @@ function generateScanComment(
 			newHigh += diff.new_high_count;
 			newMedium += diff.new_medium_count;
 			newLow += diff.new_low_count;
+			newUnknown += diff.new_unknown_count ?? 0;
 			suppressedTotal += diff.suppressed_cves_count;
 			nonActionableTotal += diff.non_actionable_cves_count ?? 0;
 			// A passing diff's reasons are informational notes, not failures.
@@ -326,6 +330,15 @@ function generateScanComment(
 			if (newLow > 0) parts.push(`${newLow} low`);
 			out.push(
 				`> :warning: **${totalNew} new vulnerabilities found** (${parts.join(", ")})`,
+			);
+		}
+
+		// Gating on new CVEs must not hide older ones that still need action.
+		const existing = unsuppressedTotal - totalNew - newUnknown;
+		if (existing > 0) {
+			out.push(
+				"",
+				`> :warning: **${existing} existing ${existing === 1 ? "vulnerability still needs" : "vulnerabilities still need"} action.** ${existing === 1 ? "It predates" : "They predate"} this change, so ${existing === 1 ? "it doesn't" : "they don't"} block it.`,
 			);
 		}
 		out.push("");
