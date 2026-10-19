@@ -47,15 +47,20 @@ export interface ScanResult {
     scan_name?: string;
     scan_diff?: ScanDiff;
     total_vulnerabilities?: number;
+    unsuppressed_vulnerabilities?: number;
     unsuppressed_highest_severity?: string;
     highest_severity?: string;
 }
 export interface ScanDiff {
+    passed?: boolean;
+    failure_reasons?: string[];
     new_critical_count: number;
     new_high_count: number;
     new_medium_count: number;
     new_low_count: number;
+    new_unknown_count?: number;
     suppressed_cves_count: number;
+    non_actionable_cves_count?: number;
     unchanged_cves_count: number;
     new_cves: CveEntry[];
     resolved_cves: CveEntry[];

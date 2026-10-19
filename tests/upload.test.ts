@@ -238,6 +238,39 @@ describe("runUpload", () => {
 		expect(result.stderr).toBe("coverage check failed");
 	});
 
+	it("says whether the scan check failed in the scan log line", async () => {
+		vi.mocked(exec.getExecOutput).mockResolvedValue({
+			exitCode: 8,
+			stdout: JSON.stringify({
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							scan_name: "webapp",
+							scan_diff: {
+								new_critical_count: 0,
+								new_high_count: 0,
+								new_medium_count: 0,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								unchanged_cves_count: 55,
+								new_cves: [],
+								resolved_cves: [],
+								sla_violations: [],
+							},
+						},
+					},
+				],
+			}),
+			stderr: "",
+		});
+
+		await runUpload(makeInputs({ command: "scan" }));
+		expect(core.info).toHaveBeenCalledWith(
+			expect.stringContaining("Drape scan (webapp): failed"),
+		);
+	});
+
 	it("handles invalid JSON output", async () => {
 		vi.mocked(exec.getExecOutput).mockResolvedValue({
 			exitCode: 0,

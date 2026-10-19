@@ -261,7 +261,11 @@ function generateScanComment(
 	let newMedium = 0;
 	let newLow = 0;
 	let suppressedTotal = 0;
+	let nonActionableTotal = 0;
+	let unsuppressedTotal = 0;
+	let newUnknown = 0;
 	let unchangedTotal = 0;
+	let failureReasons: string[] = [];
 	let allNewCves: ScanDiff["new_cves"] = [];
 	let allResolvedCves: ScanDiff["resolved_cves"] = [];
 	let allSlaViolations: ScanDiff["sla_violations"] = [];
@@ -271,6 +275,7 @@ function generateScanComment(
 		const r = upload.result as ScanResult | null;
 		if (!r) continue;
 		if (!scanName && r.scan_name) scanName = r.scan_name;
+		unsuppressedTotal += r.unsuppressed_vulnerabilities ?? 0;
 
 		const diff = r.scan_diff;
 		if (diff) {
@@ -279,7 +284,13 @@ function generateScanComment(
 			newHigh += diff.new_high_count;
 			newMedium += diff.new_medium_count;
 			newLow += diff.new_low_count;
+			newUnknown += diff.new_unknown_count ?? 0;
 			suppressedTotal += diff.suppressed_cves_count;
+			nonActionableTotal += diff.non_actionable_cves_count ?? 0;
+			// A passing diff's reasons are informational notes, not failures.
+			if (diff.passed === false) {
+				failureReasons = failureReasons.concat(diff.failure_reasons ?? []);
+			}
 			unchangedTotal += diff.unchanged_cves_count;
 			allNewCves = allNewCves.concat(diff.new_cves ?? []);
 			allResolvedCves = allResolvedCves.concat(diff.resolved_cves ?? []);
@@ -297,7 +308,19 @@ function generateScanComment(
 	if (hasDiff) {
 		const totalNew = newCritical + newHigh + newMedium + newLow;
 
-		if (totalNew === 0) {
+		if (totalNew === 0 && exitCode !== 0) {
+			// The check can fail without new CVEs, e.g. on an SLA breach. The
+			// header must not read as a pass above a failed result.
+			out.push("> :x: **No new vulnerabilities, but the scan check failed**");
+			if (failureReasons.length > 0) {
+				out.push(">");
+				for (const reason of failureReasons) {
+					out.push(`> - ${reason}`);
+				}
+			} else {
+				out.push(">", "> See the job log for the reason.");
+			}
+		} else if (totalNew === 0) {
 			out.push("> :white_check_mark: **No new vulnerabilities found**");
 		} else {
 			const parts: string[] = [];
@@ -307,6 +330,15 @@ function generateScanComment(
 			if (newLow > 0) parts.push(`${newLow} low`);
 			out.push(
 				`> :warning: **${totalNew} new vulnerabilities found** (${parts.join(", ")})`,
+			);
+		}
+
+		// Gating on new CVEs must not hide older ones that still need action.
+		const existing = unsuppressedTotal - totalNew - newUnknown;
+		if (existing > 0) {
+			out.push(
+				"",
+				`> :warning: **${existing} existing ${existing === 1 ? "vulnerability still needs" : "vulnerabilities still need"} action.** ${existing === 1 ? "It predates" : "They predate"} this change, so ${existing === 1 ? "it doesn't" : "they don't"} block it.`,
 			);
 		}
 		out.push("");
@@ -320,6 +352,13 @@ function generateScanComment(
 			`| Low | ${newLow} | — | — |`,
 			`| **Total** | **${totalNew}** | **${suppressedTotal}** | **${unchangedTotal}** |`,
 		);
+
+		if (nonActionableTotal > 0) {
+			out.push(
+				"",
+				`${nonActionableTotal} won't-fix finding(s) have no upstream fix. They are listed below but don't block.`,
+			);
+		}
 
 		if (allNewCves.length > 0) {
 			out.push("");

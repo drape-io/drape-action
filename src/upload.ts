@@ -182,7 +182,7 @@ function logUploadSummary(
 						diff.new_medium_count +
 						diff.new_low_count;
 					core.info(
-						`${label}: ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
+						`${label}: ${exitCode === 0 ? "passed" : "failed"} — ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
 					);
 				} else {
 					core.info(

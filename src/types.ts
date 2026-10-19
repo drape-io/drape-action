@@ -68,16 +68,23 @@ export interface ScanResult {
 	scan_name?: string;
 	scan_diff?: ScanDiff;
 	total_vulnerabilities?: number;
+	// Whole scan, not just new: excludes suppressed, won't-fix and negligible.
+	unsuppressed_vulnerabilities?: number;
 	unsuppressed_highest_severity?: string;
 	highest_severity?: string;
 }
 
 export interface ScanDiff {
+	passed?: boolean;
+	failure_reasons?: string[];
 	new_critical_count: number;
 	new_high_count: number;
 	new_medium_count: number;
 	new_low_count: number;
+	new_unknown_count?: number;
 	suppressed_cves_count: number;
+	// Won't-fix upstream: listed in new_cves but excluded from the counts above.
+	non_actionable_cves_count?: number;
 	unchanged_cves_count: number;
 	new_cves: CveEntry[];
 	resolved_cves: CveEntry[];
