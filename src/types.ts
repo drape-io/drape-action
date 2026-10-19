@@ -73,11 +73,15 @@ export interface ScanResult {
 }
 
 export interface ScanDiff {
+	passed?: boolean;
+	failure_reasons?: string[];
 	new_critical_count: number;
 	new_high_count: number;
 	new_medium_count: number;
 	new_low_count: number;
 	suppressed_cves_count: number;
+	// Won't-fix upstream: listed in new_cves but excluded from the counts above.
+	non_actionable_cves_count?: number;
 	unchanged_cves_count: number;
 	new_cves: CveEntry[];
 	resolved_cves: CveEntry[];
