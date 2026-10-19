@@ -803,6 +803,57 @@ describe("generateComment", () => {
 			expect(body).toContain("3 existing vulnerabilities still need action");
 		});
 
+		it("lists the existing vulnerabilities that still need action", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							unsuppressed_vulnerabilities: 2,
+							scan_diff: {
+								passed: true,
+								new_critical_count: 0,
+								new_high_count: 0,
+								new_medium_count: 0,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								unchanged_cves_count: 55,
+								new_cves: [],
+								resolved_cves: [],
+								sla_violations: [],
+								existing_actionable_cves: [
+									{
+										cve_id: "CVE-2026-0001",
+										severity: "high",
+										package_name: "zlib1g",
+										package_version: "1.3",
+										fix_state: "not-fixed",
+									},
+									{
+										cve_id: "CVE-2026-0002",
+										severity: "medium",
+										package_name: "python",
+										package_version: "3.14.8",
+										fix_state: "fixed",
+									},
+								],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 0, response, "");
+
+			expect(body).toContain("2 existing vulnerabilities still need action");
+			expect(body).toContain(
+				"<summary>Existing vulnerabilities that still need action (2)</summary>",
+			);
+			expect(body).toContain(
+				"| [CVE-2026-0001](https://nvd.nist.gov/vuln/detail/CVE-2026-0001) | HIGH | zlib1g@1.3 | not-fixed |",
+			);
+			expect(body).toContain("CVE-2026-0002");
+		});
+
 		it("omits the existing line when every unsuppressed vulnerability is new", () => {
 			const response: DrapeCliResponse = {
 				uploads: [
