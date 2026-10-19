@@ -267,6 +267,8 @@ function generateScanComment(
 	let unchangedTotal = 0;
 	let failureReasons: string[] = [];
 	let allNewCves: ScanDiff["new_cves"] = [];
+	let allExistingCves: ScanDiff["new_cves"] = [];
+	let hasExistingList = false;
 	let allResolvedCves: ScanDiff["resolved_cves"] = [];
 	let allSlaViolations: ScanDiff["sla_violations"] = [];
 	let scanName = "";
@@ -293,6 +295,10 @@ function generateScanComment(
 			}
 			unchangedTotal += diff.unchanged_cves_count;
 			allNewCves = allNewCves.concat(diff.new_cves ?? []);
+			if (diff.existing_actionable_cves) {
+				hasExistingList = true;
+				allExistingCves = allExistingCves.concat(diff.existing_actionable_cves);
+			}
 			allResolvedCves = allResolvedCves.concat(diff.resolved_cves ?? []);
 			allSlaViolations = allSlaViolations.concat(diff.sla_violations ?? []);
 		}
@@ -334,7 +340,10 @@ function generateScanComment(
 		}
 
 		// Gating on new CVEs must not hide older ones that still need action.
-		const existing = unsuppressedTotal - totalNew - newUnknown;
+		// Prefer the server's list; older servers only let us derive a count.
+		const existing = hasExistingList
+			? allExistingCves.length
+			: unsuppressedTotal - totalNew - newUnknown;
 		if (existing > 0) {
 			out.push(
 				"",
@@ -370,6 +379,23 @@ function generateScanComment(
 				"|-----|----------|---------|-----|",
 			);
 			for (const cve of allNewCves) {
+				out.push(
+					`| [${cve.cve_id}](https://nvd.nist.gov/vuln/detail/${cve.cve_id}) | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} | ${cve.fix_state ?? "—"} |`,
+				);
+			}
+			out.push("", "</details>");
+		}
+
+		if (allExistingCves.length > 0) {
+			out.push("");
+			out.push(
+				"<details>",
+				`<summary>Existing vulnerabilities that still need action (${allExistingCves.length})</summary>`,
+				"",
+				"| CVE | Severity | Package | Fix |",
+				"|-----|----------|---------|-----|",
+			);
+			for (const cve of allExistingCves) {
 				out.push(
 					`| [${cve.cve_id}](https://nvd.nist.gov/vuln/detail/${cve.cve_id}) | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} | ${cve.fix_state ?? "—"} |`,
 				);

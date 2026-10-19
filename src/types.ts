@@ -88,6 +88,8 @@ export interface ScanDiff {
 	unchanged_cves_count: number;
 	new_cves: CveEntry[];
 	resolved_cves: CveEntry[];
+	// Unchanged CVEs that still need action. Don't block; listed for visibility.
+	existing_actionable_cves?: CveEntry[];
 	sla_violations: SlaViolation[];
 }
 

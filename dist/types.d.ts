@@ -64,6 +64,7 @@ export interface ScanDiff {
     unchanged_cves_count: number;
     new_cves: CveEntry[];
     resolved_cves: CveEntry[];
+    existing_actionable_cves?: CveEntry[];
     sla_violations: SlaViolation[];
 }
 export interface CveEntry {
