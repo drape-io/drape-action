@@ -32646,10 +32646,13 @@ function generateScanComment(uploads, exitCode, commentTitle) {
     let newUnknown = 0;
     let unchangedTotal = 0;
     let failureReasons = [];
-    let allNewCves = [];
-    let allExistingCves = [];
+    // Grouped per upload: a CVE in two uploads is two rows, as it is two
+    // in the summed counts.
+    const newGroups = [];
+    const existingGroups = [];
+    let existingFindings = 0;
     let hasExistingList = false;
-    let allResolvedCves = [];
+    const resolvedGroups = [];
     let allSlaViolations = [];
     let scanName = "";
     // Per-CVE counts, used only when every diff has them, so a mix of old
@@ -32683,12 +32686,13 @@ function generateScanComment(uploads, exitCode, commentTitle) {
                 failureReasons = failureReasons.concat(diff.failure_reasons ?? []);
             }
             unchangedTotal += diff.unchanged_cves_count;
-            allNewCves = allNewCves.concat(diff.new_cves ?? []);
+            newGroups.push(...groupByCve(diff.new_cves ?? []));
             if (diff.existing_actionable_cves) {
                 hasExistingList = true;
-                allExistingCves = allExistingCves.concat(diff.existing_actionable_cves);
+                existingFindings += diff.existing_actionable_cves.length;
+                existingGroups.push(...groupByCve(diff.existing_actionable_cves));
             }
-            allResolvedCves = allResolvedCves.concat(diff.resolved_cves ?? []);
+            resolvedGroups.push(...groupByCve(diff.resolved_cves ?? []));
             allSlaViolations = allSlaViolations.concat(diff.sla_violations ?? []);
             if (diff.cve_counts) {
                 for (const sev of Object.keys(cveCounts.new)) {
@@ -32753,12 +32757,13 @@ function generateScanComment(uploads, exitCode, commentTitle) {
             out.push(`> :warning: **${totalNew} new ${totalNew === 1 ? "vulnerability" : "vulnerabilities"} found** (${parts.join(", ")})`);
         }
         // Gating on new CVEs must not hide older ones that still need action.
-        // Prefer the server's count, then its list; the oldest servers only
-        // let us derive a count.
+        // Prefer the server's per-CVE count, then its per-package list, the
+        // unit of the headline in that case; the oldest servers only let us
+        // derive a count.
         const existing = countsByCve
             ? cveCounts.existing
             : hasExistingList
-                ? groupByCve(allExistingCves).length
+                ? existingFindings
                 : unsuppressedTotal - totalNew - newUnknown;
         if (existing > 0) {
             out.push("", `> :warning: **${existing} existing ${existing === 1 ? "vulnerability still needs" : "vulnerabilities still need"} action.** ${existing === 1 ? "It predates" : "They predate"} this change, so ${existing === 1 ? "it doesn't" : "they don't"} block it.`);
@@ -32778,9 +32783,9 @@ function generateScanComment(uploads, exitCode, commentTitle) {
                 ? `${nonActionableTotal} new ${nonActionableTotal === 1 ? "CVE has" : "CVEs have"} no fix upstream (won't fix or not affected). They are listed below but don't block.`
                 : `${nonActionableTotal} won't-fix finding(s) have no upstream fix. They are listed below but don't block.`);
         }
-        pushCveTable(out, "New vulnerabilities", allNewCves, true);
-        pushCveTable(out, "Existing vulnerabilities that still need action", allExistingCves, true);
-        pushCveTable(out, "Resolved vulnerabilities", allResolvedCves, false);
+        pushCveTable(out, "New vulnerabilities", newGroups, true);
+        pushCveTable(out, "Existing vulnerabilities that still need action", existingGroups, true);
+        pushCveTable(out, "Resolved vulnerabilities", resolvedGroups, false);
         const overdue = groupSlaViolations(allSlaViolations);
         if (overdue.length > 0) {
             out.push("", "> [!WARNING]", `> **SLA Violations (${overdue.length})**`, ">", "> | CVE | Severity | Packages | Overdue |", "> |-----|----------|----------|---------|");
@@ -32834,8 +32839,7 @@ function groupByCve(entries) {
     }
     return [...groups.values()];
 }
-function pushCveTable(out, title, entries, withFix) {
-    const groups = groupByCve(entries);
+function pushCveTable(out, title, groups, withFix) {
     if (groups.length === 0)
         return;
     out.push("", "<details>", `<summary>${title} (${groups.length})</summary>`, "", withFix
@@ -33540,12 +33544,19 @@ function logUploadSummary(command, response, exitCode) {
                     ? `Drape scan (${sr.scan_name})`
                     : "Drape scan";
                 const diff = sr.scan_diff;
-                if (diff) {
+                const status = exitCode === 0 ? "passed" : "failed";
+                const cc = diff?.cve_counts;
+                if (cc) {
+                    // Per CVE, matching the PR comment.
+                    const totalNew = cc.new.critical + cc.new.high + cc.new.medium + cc.new.low;
+                    core.info(`${label}: ${status} — ${totalNew} new ${totalNew === 1 ? "vulnerability" : "vulnerabilities"}, ${cc.suppressed} suppressed, ${cc.existing} existing still need action ${url}`);
+                }
+                else if (diff) {
                     const totalNew = diff.new_critical_count +
                         diff.new_high_count +
                         diff.new_medium_count +
                         diff.new_low_count;
-                    core.info(`${label}: ${exitCode === 0 ? "passed" : "failed"} — ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`);
+                    core.info(`${label}: ${status} — ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`);
                 }
                 else {
                     core.info(`${label}: ${sr.total_vulnerabilities ?? 0} total vulnerabilities ${url}`);

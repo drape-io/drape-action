@@ -268,10 +268,13 @@ function generateScanComment(
 	let newUnknown = 0;
 	let unchangedTotal = 0;
 	let failureReasons: string[] = [];
-	let allNewCves: ScanDiff["new_cves"] = [];
-	let allExistingCves: ScanDiff["new_cves"] = [];
+	// Grouped per upload: a CVE in two uploads is two rows, as it is two
+	// in the summed counts.
+	const newGroups: CveGroup[] = [];
+	const existingGroups: CveGroup[] = [];
+	let existingFindings = 0;
 	let hasExistingList = false;
-	let allResolvedCves: ScanDiff["resolved_cves"] = [];
+	const resolvedGroups: CveGroup[] = [];
 	let allSlaViolations: ScanDiff["sla_violations"] = [];
 	let scanName = "";
 	// Per-CVE counts, used only when every diff has them, so a mix of old
@@ -305,12 +308,13 @@ function generateScanComment(
 				failureReasons = failureReasons.concat(diff.failure_reasons ?? []);
 			}
 			unchangedTotal += diff.unchanged_cves_count;
-			allNewCves = allNewCves.concat(diff.new_cves ?? []);
+			newGroups.push(...groupByCve(diff.new_cves ?? []));
 			if (diff.existing_actionable_cves) {
 				hasExistingList = true;
-				allExistingCves = allExistingCves.concat(diff.existing_actionable_cves);
+				existingFindings += diff.existing_actionable_cves.length;
+				existingGroups.push(...groupByCve(diff.existing_actionable_cves));
 			}
-			allResolvedCves = allResolvedCves.concat(diff.resolved_cves ?? []);
+			resolvedGroups.push(...groupByCve(diff.resolved_cves ?? []));
 			allSlaViolations = allSlaViolations.concat(diff.sla_violations ?? []);
 			if (diff.cve_counts) {
 				for (const sev of Object.keys(cveCounts.new) as Array<
@@ -375,12 +379,13 @@ function generateScanComment(
 		}
 
 		// Gating on new CVEs must not hide older ones that still need action.
-		// Prefer the server's count, then its list; the oldest servers only
-		// let us derive a count.
+		// Prefer the server's per-CVE count, then its per-package list, the
+		// unit of the headline in that case; the oldest servers only let us
+		// derive a count.
 		const existing = countsByCve
 			? cveCounts.existing
 			: hasExistingList
-				? groupByCve(allExistingCves).length
+				? existingFindings
 				: unsuppressedTotal - totalNew - newUnknown;
 		if (existing > 0) {
 			out.push(
@@ -424,14 +429,14 @@ function generateScanComment(
 			);
 		}
 
-		pushCveTable(out, "New vulnerabilities", allNewCves, true);
+		pushCveTable(out, "New vulnerabilities", newGroups, true);
 		pushCveTable(
 			out,
 			"Existing vulnerabilities that still need action",
-			allExistingCves,
+			existingGroups,
 			true,
 		);
-		pushCveTable(out, "Resolved vulnerabilities", allResolvedCves, false);
+		pushCveTable(out, "Resolved vulnerabilities", resolvedGroups, false);
 
 		const overdue = groupSlaViolations(allSlaViolations);
 		if (overdue.length > 0) {
@@ -515,10 +520,9 @@ function groupByCve(entries: CveEntry[]): CveGroup[] {
 function pushCveTable(
 	out: string[],
 	title: string,
-	entries: CveEntry[],
+	groups: CveGroup[],
 	withFix: boolean,
 ): void {
-	const groups = groupByCve(entries);
 	if (groups.length === 0) return;
 	out.push(
 		"",

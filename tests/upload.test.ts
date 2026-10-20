@@ -271,6 +271,47 @@ describe("runUpload", () => {
 		);
 	});
 
+	it("counts CVEs in the scan log line when the diff has per-CVE counts", async () => {
+		vi.mocked(exec.getExecOutput).mockResolvedValue({
+			exitCode: 1,
+			stdout: JSON.stringify({
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							scan_name: "webapp",
+							scan_diff: {
+								new_critical_count: 0,
+								new_high_count: 2,
+								new_medium_count: 0,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								unchanged_cves_count: 55,
+								new_cves: [],
+								resolved_cves: [],
+								sla_violations: [],
+								cve_counts: {
+									new: { critical: 0, high: 1, medium: 0, low: 0, unknown: 0 },
+									existing: 3,
+									suppressed: 0,
+									no_fix: 0,
+								},
+							},
+						},
+					},
+				],
+			}),
+			stderr: "",
+		});
+
+		await runUpload(makeInputs({ command: "scan" }));
+		expect(core.info).toHaveBeenCalledWith(
+			expect.stringContaining(
+				"Drape scan (webapp): failed — 1 new vulnerability, 0 suppressed, 3 existing still need action",
+			),
+		);
+	});
+
 	it("handles invalid JSON output", async () => {
 		vi.mocked(exec.getExecOutput).mockResolvedValue({
 			exitCode: 0,
