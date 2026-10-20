@@ -66,6 +66,13 @@ export interface ScanDiff {
     resolved_cves: CveEntry[];
     existing_actionable_cves?: CveEntry[];
     sla_violations: SlaViolation[];
+    cve_counts?: CveCounts;
+}
+export interface CveCounts {
+    new: Record<"critical" | "high" | "medium" | "low" | "unknown", number>;
+    existing: number;
+    suppressed: number;
+    no_fix: number;
 }
 export interface CveEntry {
     cve_id: string;

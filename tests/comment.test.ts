@@ -909,6 +909,227 @@ describe("generateComment", () => {
 			expect(body).toContain("4 won't-fix");
 		});
 
+		it("counts and lists each CVE once when the server sends per-CVE counts", () => {
+			const pkg = (
+				cve_id: string,
+				package_name: string,
+				fix_state = "fixed",
+			) => ({
+				cve_id,
+				severity: "high",
+				package_name,
+				package_version: "3.0",
+				fix_state,
+			});
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							scan_diff: {
+								passed: false,
+								// Per package: one CVE on two packages counts twice here.
+								new_critical_count: 0,
+								new_high_count: 2,
+								new_medium_count: 0,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								non_actionable_cves_count: 2,
+								unchanged_cves_count: 40,
+								new_cves: [
+									pkg("CVE-2026-0001", "libssl3"),
+									pkg("CVE-2026-0001", "openssl"),
+									pkg("CVE-2026-0002", "perl", "wont-fix"),
+									pkg("CVE-2026-0002", "perl-base", "wont-fix"),
+								],
+								existing_actionable_cves: [
+									pkg("CVE-2026-0003", "zlib1g"),
+									pkg("CVE-2026-0003", "zlib1g-dev"),
+								],
+								resolved_cves: [],
+								sla_violations: [],
+								cve_counts: {
+									new: { critical: 0, high: 1, medium: 0, low: 0, unknown: 0 },
+									existing: 1,
+									suppressed: 0,
+									no_fix: 1,
+								},
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 1, response, "");
+
+			expect(body).toContain("1 new vulnerability found");
+			expect(body).toContain("1 existing vulnerability still needs action");
+			expect(body).toContain("1 new CVE has no fix upstream");
+			expect(body).toContain("<summary>New vulnerabilities (2)</summary>");
+			expect(body).toContain(
+				"| [CVE-2026-0001](https://nvd.nist.gov/vuln/detail/CVE-2026-0001) | HIGH | libssl3@3.0<br>openssl@3.0 | fixed<br>fixed |",
+			);
+			expect(body).toContain(
+				"<summary>Existing vulnerabilities that still need action (1)</summary>",
+			);
+			// Unchanged is only known per package, so it isn't shown next to CVEs.
+			expect(body).not.toContain("Unchanged");
+		});
+
+		it("falls back to per-package counts when any diff lacks per-CVE counts", () => {
+			const diff = {
+				new_critical_count: 0,
+				new_high_count: 2,
+				new_medium_count: 0,
+				new_low_count: 0,
+				suppressed_cves_count: 0,
+				unchanged_cves_count: 0,
+				new_cves: [],
+				resolved_cves: [],
+				sla_violations: [],
+			};
+			const response: DrapeCliResponse = {
+				uploads: [
+					{ drape_url: "", result: { scan_diff: diff } },
+					{
+						drape_url: "",
+						result: {
+							scan_diff: {
+								...diff,
+								cve_counts: {
+									new: { critical: 0, high: 1, medium: 0, low: 0, unknown: 0 },
+									existing: 0,
+									suppressed: 0,
+									no_fix: 0,
+								},
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 1, response, "");
+
+			expect(body).toContain("4 new vulnerabilities found");
+		});
+
+		it("keeps counts and tables in step when uploads share a CVE", () => {
+			const diff = {
+				passed: false,
+				new_critical_count: 0,
+				new_high_count: 1,
+				new_medium_count: 0,
+				new_low_count: 0,
+				suppressed_cves_count: 0,
+				unchanged_cves_count: 0,
+				new_cves: [
+					{
+						cve_id: "CVE-2026-0001",
+						severity: "high",
+						package_name: "openssl",
+						package_version: "3.0",
+						fix_state: "fixed",
+					},
+				],
+				resolved_cves: [],
+				sla_violations: [],
+				cve_counts: {
+					new: { critical: 0, high: 1, medium: 0, low: 0, unknown: 0 },
+					existing: 0,
+					suppressed: 0,
+					no_fix: 0,
+				},
+			};
+			const response: DrapeCliResponse = {
+				uploads: [
+					{ drape_url: "", result: { scan_diff: diff } },
+					{ drape_url: "", result: { scan_diff: diff } },
+				],
+			};
+			const body = generateComment("scan", 1, response, "");
+
+			expect(body).toContain("2 new vulnerabilities found");
+			expect(body).toContain("<summary>New vulnerabilities (2)</summary>");
+			expect(body).not.toContain("openssl@3.0<br>openssl@3.0");
+		});
+
+		it("counts existing findings per package without per-CVE counts", () => {
+			const existing = (package_name: string) => ({
+				cve_id: "CVE-2026-0003",
+				severity: "high",
+				package_name,
+				package_version: "1.0",
+				fix_state: "fixed",
+			});
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							scan_diff: {
+								new_critical_count: 0,
+								new_high_count: 0,
+								new_medium_count: 0,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								unchanged_cves_count: 2,
+								new_cves: [],
+								existing_actionable_cves: [
+									existing("zlib1g"),
+									existing("zlib1g-dev"),
+								],
+								resolved_cves: [],
+								sla_violations: [],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 0, response, "");
+
+			expect(body).toContain("2 existing vulnerabilities still need action");
+		});
+
+		it("groups SLA violations by CVE", () => {
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							scan_diff: {
+								new_critical_count: 0,
+								new_high_count: 0,
+								new_medium_count: 0,
+								new_low_count: 0,
+								suppressed_cves_count: 0,
+								unchanged_cves_count: 2,
+								new_cves: [],
+								resolved_cves: [],
+								sla_violations: [
+									{
+										cve_id: "CVE-2023-5555",
+										severity: "critical",
+										package_name: "libssl3",
+										days_overdue: 30,
+									},
+									{
+										cve_id: "CVE-2023-5555",
+										severity: "critical",
+										package_name: "openssl",
+										days_overdue: 31,
+									},
+								],
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 8, response, "");
+
+			expect(body).toContain("SLA Violations (1)");
+			expect(body).toContain(
+				"| CVE-2023-5555 | CRITICAL | libssl3, openssl | 31 days |",
+			);
+		});
+
 		it("shows resolved CVEs", () => {
 			const response: DrapeCliResponse = {
 				uploads: [

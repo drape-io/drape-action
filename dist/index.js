@@ -32646,12 +32646,24 @@ function generateScanComment(uploads, exitCode, commentTitle) {
     let newUnknown = 0;
     let unchangedTotal = 0;
     let failureReasons = [];
-    let allNewCves = [];
-    let allExistingCves = [];
+    // Grouped per upload: a CVE in two uploads is two rows, as it is two
+    // in the summed counts.
+    const newGroups = [];
+    const existingGroups = [];
+    let existingFindings = 0;
     let hasExistingList = false;
-    let allResolvedCves = [];
+    const resolvedGroups = [];
     let allSlaViolations = [];
     let scanName = "";
+    // Per-CVE counts, used only when every diff has them, so a mix of old
+    // and new servers never adds CVEs to package findings.
+    const cveCounts = {
+        new: { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 },
+        existing: 0,
+        suppressed: 0,
+        no_fix: 0,
+    };
+    let countsByCve = true;
     for (const upload of uploads) {
         const r = upload.result;
         if (!r)
@@ -32674,14 +32686,38 @@ function generateScanComment(uploads, exitCode, commentTitle) {
                 failureReasons = failureReasons.concat(diff.failure_reasons ?? []);
             }
             unchangedTotal += diff.unchanged_cves_count;
-            allNewCves = allNewCves.concat(diff.new_cves ?? []);
+            newGroups.push(...groupByCve(diff.new_cves ?? []));
             if (diff.existing_actionable_cves) {
                 hasExistingList = true;
-                allExistingCves = allExistingCves.concat(diff.existing_actionable_cves);
+                existingFindings += diff.existing_actionable_cves.length;
+                existingGroups.push(...groupByCve(diff.existing_actionable_cves));
             }
-            allResolvedCves = allResolvedCves.concat(diff.resolved_cves ?? []);
+            resolvedGroups.push(...groupByCve(diff.resolved_cves ?? []));
             allSlaViolations = allSlaViolations.concat(diff.sla_violations ?? []);
+            if (diff.cve_counts) {
+                for (const sev of Object.keys(cveCounts.new)) {
+                    cveCounts.new[sev] += diff.cve_counts.new[sev] ?? 0;
+                }
+                cveCounts.existing += diff.cve_counts.existing;
+                cveCounts.suppressed += diff.cve_counts.suppressed;
+                cveCounts.no_fix += diff.cve_counts.no_fix;
+            }
+            else {
+                countsByCve = false;
+            }
         }
+    }
+    countsByCve = countsByCve && hasDiff;
+    if (countsByCve) {
+        ({
+            critical: newCritical,
+            high: newHigh,
+            medium: newMedium,
+            low: newLow,
+            unknown: newUnknown,
+        } = cveCounts.new);
+        suppressedTotal = cveCounts.suppressed;
+        nonActionableTotal = cveCounts.no_fix;
     }
     const drapeUrl = uploads[0]?.drape_url ?? "";
     const defaultTitle = scanName
@@ -32718,49 +32754,43 @@ function generateScanComment(uploads, exitCode, commentTitle) {
                 parts.push(`${newMedium} medium`);
             if (newLow > 0)
                 parts.push(`${newLow} low`);
-            out.push(`> :warning: **${totalNew} new vulnerabilities found** (${parts.join(", ")})`);
+            out.push(`> :warning: **${totalNew} new ${totalNew === 1 ? "vulnerability" : "vulnerabilities"} found** (${parts.join(", ")})`);
         }
         // Gating on new CVEs must not hide older ones that still need action.
-        // Prefer the server's list; older servers only let us derive a count.
-        const existing = hasExistingList
-            ? allExistingCves.length
-            : unsuppressedTotal - totalNew - newUnknown;
+        // Prefer the server's per-CVE count, then its per-package list, the
+        // unit of the headline in that case; the oldest servers only let us
+        // derive a count.
+        const existing = countsByCve
+            ? cveCounts.existing
+            : hasExistingList
+                ? existingFindings
+                : unsuppressedTotal - totalNew - newUnknown;
         if (existing > 0) {
             out.push("", `> :warning: **${existing} existing ${existing === 1 ? "vulnerability still needs" : "vulnerabilities still need"} action.** ${existing === 1 ? "It predates" : "They predate"} this change, so ${existing === 1 ? "it doesn't" : "they don't"} block it.`);
         }
         out.push("");
-        out.push("| Severity | New | Suppressed | Unchanged |", "|----------|-----|------------|-----------|", `| Critical | ${newCritical} | — | — |`, `| High | ${newHigh} | — | — |`, `| Medium | ${newMedium} | — | — |`, `| Low | ${newLow} | — | — |`, `| **Total** | **${totalNew}** | **${suppressedTotal}** | **${unchangedTotal}** |`);
+        // The server's unchanged count is per package; there is no per-CVE
+        // equivalent, and the existing line above already names the ones
+        // that matter.
+        if (countsByCve) {
+            out.push("| Severity | New | Suppressed |", "|----------|-----|------------|", `| Critical | ${newCritical} | — |`, `| High | ${newHigh} | — |`, `| Medium | ${newMedium} | — |`, `| Low | ${newLow} | — |`, `| **Total** | **${totalNew}** | **${suppressedTotal}** |`);
+        }
+        else {
+            out.push("| Severity | New | Suppressed | Unchanged |", "|----------|-----|------------|-----------|", `| Critical | ${newCritical} | — | — |`, `| High | ${newHigh} | — | — |`, `| Medium | ${newMedium} | — | — |`, `| Low | ${newLow} | — | — |`, `| **Total** | **${totalNew}** | **${suppressedTotal}** | **${unchangedTotal}** |`);
+        }
         if (nonActionableTotal > 0) {
-            out.push("", `${nonActionableTotal} won't-fix finding(s) have no upstream fix. They are listed below but don't block.`);
+            out.push("", countsByCve
+                ? `${nonActionableTotal} new ${nonActionableTotal === 1 ? "CVE has" : "CVEs have"} no fix upstream (won't fix or not affected). They are listed below but don't block.`
+                : `${nonActionableTotal} won't-fix finding(s) have no upstream fix. They are listed below but don't block.`);
         }
-        if (allNewCves.length > 0) {
-            out.push("");
-            out.push("<details>", `<summary>New vulnerabilities (${allNewCves.length})</summary>`, "", "| CVE | Severity | Package | Fix |", "|-----|----------|---------|-----|");
-            for (const cve of allNewCves) {
-                out.push(`| [${cve.cve_id}](https://nvd.nist.gov/vuln/detail/${cve.cve_id}) | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} | ${cve.fix_state ?? "—"} |`);
-            }
-            out.push("", "</details>");
-        }
-        if (allExistingCves.length > 0) {
-            out.push("");
-            out.push("<details>", `<summary>Existing vulnerabilities that still need action (${allExistingCves.length})</summary>`, "", "| CVE | Severity | Package | Fix |", "|-----|----------|---------|-----|");
-            for (const cve of allExistingCves) {
-                out.push(`| [${cve.cve_id}](https://nvd.nist.gov/vuln/detail/${cve.cve_id}) | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} | ${cve.fix_state ?? "—"} |`);
-            }
-            out.push("", "</details>");
-        }
-        if (allResolvedCves.length > 0) {
-            out.push("");
-            out.push("<details>", `<summary>Resolved vulnerabilities (${allResolvedCves.length})</summary>`, "", "| CVE | Severity | Package |", "|-----|----------|---------|");
-            for (const cve of allResolvedCves) {
-                out.push(`| ${cve.cve_id} | ${cve.severity.toUpperCase()} | ${cve.package_name}@${cve.package_version} |`);
-            }
-            out.push("", "</details>");
-        }
-        if (allSlaViolations.length > 0) {
-            out.push("", "> [!WARNING]", `> **SLA Violations (${allSlaViolations.length})**`, ">", "> | CVE | Severity | Package | Overdue |", "> |-----|----------|---------|---------|");
-            for (const v of allSlaViolations) {
-                out.push(`> | ${v.cve_id} | ${v.severity.toUpperCase()} | ${v.package_name} | ${v.days_overdue} days |`);
+        pushCveTable(out, "New vulnerabilities", newGroups, true);
+        pushCveTable(out, "Existing vulnerabilities that still need action", existingGroups, true);
+        pushCveTable(out, "Resolved vulnerabilities", resolvedGroups, false);
+        const overdue = groupSlaViolations(allSlaViolations);
+        if (overdue.length > 0) {
+            out.push("", "> [!WARNING]", `> **SLA Violations (${overdue.length})**`, ">", "> | CVE | Severity | Packages | Overdue |", "> |-----|----------|----------|---------|");
+            for (const v of overdue) {
+                out.push(`> | ${v.cve_id} | ${v.severity.toUpperCase()} | ${v.packages.join(", ")} | ${v.days_overdue} days |`);
             }
         }
     }
@@ -32773,6 +32803,82 @@ function generateScanComment(uploads, exitCode, commentTitle) {
     }
     out.push("", footer(exitCode, drapeUrl));
     return lines(...out);
+}
+const SEVERITY_RANK = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+    negligible: 4,
+    unknown: 5,
+};
+function severityRank(severity) {
+    return SEVERITY_RANK[severity] ?? Object.keys(SEVERITY_RANK).length;
+}
+// The server lists one entry per (CVE, package) pair. Readers think in CVEs,
+// so a CVE that hits several packages becomes one row listing them all,
+// under its highest severity.
+function groupByCve(entries) {
+    const groups = new Map();
+    for (const e of entries) {
+        let group = groups.get(e.cve_id);
+        if (!group) {
+            group = {
+                cve_id: e.cve_id,
+                severity: e.severity,
+                packages: [],
+                fixes: [],
+            };
+            groups.set(e.cve_id, group);
+        }
+        else if (severityRank(e.severity) < severityRank(group.severity)) {
+            group.severity = e.severity;
+        }
+        group.packages.push(`${e.package_name}@${e.package_version}`);
+        group.fixes.push(e.fix_state ?? "—");
+    }
+    return [...groups.values()];
+}
+function pushCveTable(out, title, groups, withFix) {
+    if (groups.length === 0)
+        return;
+    out.push("", "<details>", `<summary>${title} (${groups.length})</summary>`, "", withFix
+        ? "| CVE | Severity | Packages | Fix |"
+        : "| CVE | Severity | Packages |", withFix
+        ? "|-----|----------|----------|-----|"
+        : "|-----|----------|----------|");
+    for (const g of groups) {
+        const cells = [
+            `[${g.cve_id}](https://nvd.nist.gov/vuln/detail/${g.cve_id})`,
+            g.severity.toUpperCase(),
+            g.packages.join("<br>"),
+        ];
+        if (withFix)
+            cells.push(g.fixes.join("<br>"));
+        out.push(`| ${cells.join(" | ")} |`);
+    }
+    out.push("", "</details>");
+}
+function groupSlaViolations(violations) {
+    const groups = new Map();
+    for (const v of violations) {
+        const group = groups.get(v.cve_id);
+        if (!group) {
+            groups.set(v.cve_id, {
+                cve_id: v.cve_id,
+                severity: v.severity,
+                packages: [v.package_name],
+                days_overdue: v.days_overdue,
+            });
+            continue;
+        }
+        group.packages.push(v.package_name);
+        group.days_overdue = Math.max(group.days_overdue, v.days_overdue);
+        if (severityRank(v.severity) < severityRank(group.severity)) {
+            group.severity = v.severity;
+        }
+    }
+    return [...groups.values()];
 }
 // --- Lint ---
 function generateLintComment(uploads, exitCode, group, commentTitle) {
@@ -33438,12 +33544,19 @@ function logUploadSummary(command, response, exitCode) {
                     ? `Drape scan (${sr.scan_name})`
                     : "Drape scan";
                 const diff = sr.scan_diff;
-                if (diff) {
+                const status = exitCode === 0 ? "passed" : "failed";
+                const cc = diff?.cve_counts;
+                if (cc) {
+                    // Per CVE, matching the PR comment.
+                    const totalNew = cc.new.critical + cc.new.high + cc.new.medium + cc.new.low;
+                    core.info(`${label}: ${status} — ${totalNew} new ${totalNew === 1 ? "vulnerability" : "vulnerabilities"}, ${cc.suppressed} suppressed, ${cc.existing} existing still need action ${url}`);
+                }
+                else if (diff) {
                     const totalNew = diff.new_critical_count +
                         diff.new_high_count +
                         diff.new_medium_count +
                         diff.new_low_count;
-                    core.info(`${label}: ${exitCode === 0 ? "passed" : "failed"} — ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`);
+                    core.info(`${label}: ${status} — ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`);
                 }
                 else {
                     core.info(`${label}: ${sr.total_vulnerabilities ?? 0} total vulnerabilities ${url}`);

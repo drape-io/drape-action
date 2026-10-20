@@ -175,14 +175,23 @@ function logUploadSummary(
 					? `Drape scan (${sr.scan_name})`
 					: "Drape scan";
 				const diff = sr.scan_diff;
-				if (diff) {
+				const status = exitCode === 0 ? "passed" : "failed";
+				const cc = diff?.cve_counts;
+				if (cc) {
+					// Per CVE, matching the PR comment.
+					const totalNew =
+						cc.new.critical + cc.new.high + cc.new.medium + cc.new.low;
+					core.info(
+						`${label}: ${status} — ${totalNew} new ${totalNew === 1 ? "vulnerability" : "vulnerabilities"}, ${cc.suppressed} suppressed, ${cc.existing} existing still need action ${url}`,
+					);
+				} else if (diff) {
 					const totalNew =
 						diff.new_critical_count +
 						diff.new_high_count +
 						diff.new_medium_count +
 						diff.new_low_count;
 					core.info(
-						`${label}: ${exitCode === 0 ? "passed" : "failed"} — ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
+						`${label}: ${status} — ${totalNew} new vulnerabilities, ${diff.suppressed_cves_count} suppressed, ${diff.unchanged_cves_count} unchanged ${url}`,
 					);
 				} else {
 					core.info(
