@@ -91,6 +91,19 @@ export interface ScanDiff {
 	// Unchanged CVEs that still need action. Don't block; listed for visibility.
 	existing_actionable_cves?: CveEntry[];
 	sla_violations: SlaViolation[];
+	// The counts above and the lists hold one entry per (CVE, package) pair.
+	// These count each CVE once. Older servers don't send them.
+	cve_counts?: CveCounts;
+}
+
+export interface CveCounts {
+	// New CVEs that need action, by their highest blocking severity.
+	new: Record<"critical" | "high" | "medium" | "low" | "unknown", number>;
+	// Unchanged CVEs that still need action and aren't counted as new.
+	existing: number;
+	// New CVEs with nothing to act on: suppressed, or no fix upstream.
+	suppressed: number;
+	no_fix: number;
 }
 
 export interface CveEntry {
