@@ -178,6 +178,8 @@ With default `wait: true`, each shard blocks until all `total-shards` shards arr
 | `passed` | Whether the check passed (`true`/`false`) |
 | `comment-body` | Generated comment markdown |
 
+When Drape refused the uploads for billing, `exit-code` is `0` and `passed` is `true` even though nothing was checked; `result-json` has a `billing` field in that case.
+
 ## Permissions
 
 The action requires:
@@ -198,6 +200,8 @@ Comments are posted as sticky (updating) comments on pull requests. Each command
 - **Tests**: ingested count, failures, suppression status, flaky test details
 - **Security Scan**: severity breakdown table, new/resolved CVEs with NVD links, SLA violations
 - **Lint**: violation counts with diff highlighting, new violations with file/line/rule details
+
+If Drape refused uploads because the organization's access has ended, the comment says which results were not saved and links to where an admin can restore access. Billing never fails the job: the CLI exits 0 in that case, and the warning also appears as an annotation on the run.
 
 To disable comments, set `comment: 'false'`.
 

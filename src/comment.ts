@@ -1,4 +1,5 @@
 import type {
+	BillingRefusal,
 	CoverageDiff,
 	CoverageResult,
 	CveCounts,
@@ -33,15 +34,51 @@ export function generateComment(
 ): string {
 	const uploads = response.uploads ?? [];
 	const hasUploads = uploads.length > 0;
+	const billing = response.billing;
 
 	if (!hasUploads && exitCode !== 0) {
-		return generateErrorComment(command, exitCode, stderr, group, commentTitle);
+		const error = generateErrorComment(
+			command,
+			exitCode,
+			stderr,
+			group,
+			commentTitle,
+		);
+		return billing ? withBillingNotice(error, billing) : error;
+	}
+
+	if (!hasUploads && billing) {
+		return generateBillingComment(command, billing, group, commentTitle);
 	}
 
 	if (!hasUploads) {
 		return "";
 	}
 
+	const body = generateResultsComment(
+		command,
+		uploads,
+		exitCode,
+		response,
+		group,
+		commentTitle,
+	);
+	return billing ? withBillingNotice(body, billing) : body;
+}
+
+/** The notice after the comment, set apart so it isn't read as part of the footer's quote. */
+function withBillingNotice(body: string, billing: BillingRefusal): string {
+	return `${body.trimEnd()}\n\n${billingNotice(billing)}\n`;
+}
+
+function generateResultsComment(
+	command: Command,
+	uploads: Upload[],
+	exitCode: number,
+	response: DrapeCliResponse,
+	group?: string,
+	commentTitle?: string,
+): string {
 	switch (command) {
 		case "coverage":
 			return generateCoverageComment(
@@ -672,6 +709,43 @@ function lintSummaryLine(diff: LintDiff): string {
 	return "> :white_check_mark: **Lint check passed**";
 }
 
+// --- Billing ---
+
+const COMMAND_TITLES: Record<Command, string> = {
+	coverage: "Coverage Report",
+	tests: "Test Results",
+	scan: "Security Scan",
+	lint: "Lint Report",
+};
+
+/**
+ * Drape refused every upload because the organization's access ended. Billing never fails CI, so
+ * this is a warning, not an upload failure.
+ */
+function generateBillingComment(
+	command: Command,
+	billing: BillingRefusal,
+	group?: string,
+	commentTitle?: string,
+): string {
+	const title =
+		commentTitle ?? titleWithGroup(`Drape: ${COMMAND_TITLES[command]}`, group);
+	return lines(
+		`## ${title}`,
+		"",
+		billingNotice(billing),
+		"",
+		"> *drape-io/drape-action*",
+	);
+}
+
+function billingNotice(billing: BillingRefusal): string {
+	const restore = billing.upgrade_url
+		? ` [Restore access](${billing.upgrade_url})`
+		: "";
+	return `> :warning: **Results not saved:** ${billing.message}${restore}`;
+}
+
 // --- Error ---
 
 export function generateErrorComment(
@@ -681,15 +755,8 @@ export function generateErrorComment(
 	group?: string,
 	commentTitle?: string,
 ): string {
-	const titles: Record<Command, string> = {
-		coverage: "Coverage Report",
-		tests: "Test Results",
-		scan: "Security Scan",
-		lint: "Lint Report",
-	};
-
 	const title =
-		commentTitle ?? titleWithGroup(`Drape: ${titles[command]}`, group);
+		commentTitle ?? titleWithGroup(`Drape: ${COMMAND_TITLES[command]}`, group);
 	const out: string[] = [
 		`## ${title}`,
 		"",

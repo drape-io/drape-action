@@ -1430,6 +1430,63 @@ describe("generateComment", () => {
 		});
 	});
 
+	// --- Billing ---
+
+	describe("billing", () => {
+		const billing = {
+			status: "payment_required",
+			message:
+				"Drape: this organization's Drape access has ended; results from this run were not saved. An admin can restore it at https://app.drape.io/acme/upgrade/.",
+			upgrade_url: "https://app.drape.io/acme/upgrade/",
+		};
+
+		it("says nothing was saved when the server refused every upload", () => {
+			const response: DrapeCliResponse = { uploads: [], billing };
+			const body = generateComment("tests", 0, response, "");
+
+			expect(body).toContain("## Drape: Test Results");
+			expect(body).toContain("Results not saved");
+			expect(body).toContain("Drape access has ended");
+			expect(body).toContain(
+				"[Restore access](https://app.drape.io/acme/upgrade/)",
+			);
+			expect(body).not.toContain("Upload failed");
+		});
+
+		it("adds the notice to the results that were saved", () => {
+			const response: DrapeCliResponse = {
+				uploads: [{ drape_url: "", result: null }],
+				billing: {
+					...billing,
+					message:
+						"Drape: this organization's Drape access has ended; some results from this run were not saved.",
+					upgrade_url: undefined,
+				},
+			};
+			const body = generateComment("coverage", 0, response, "");
+
+			expect(body).toContain("no result data available yet");
+			expect(body).toContain("some results from this run were not saved");
+			expect(body).not.toContain("Restore access");
+			// A paragraph of its own, not part of the footer's quote.
+			expect(body).toMatch(/\n\n> :warning: \*\*Results not saved/);
+		});
+
+		it("keeps the error output when the CLI also failed for another reason", () => {
+			const response: DrapeCliResponse = { uploads: [], billing };
+			const body = generateComment(
+				"tests",
+				5,
+				response,
+				"parse error: bad.xml",
+			);
+
+			expect(body).toContain("exit code 5");
+			expect(body).toContain("parse error: bad.xml");
+			expect(body).toContain("Results not saved");
+		});
+	});
+
 	// --- Edge cases ---
 
 	describe("edge cases", () => {
