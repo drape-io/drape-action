@@ -2,6 +2,14 @@ export interface DrapeCliResponse {
     uploads: Upload[];
     files_matched?: number;
     files_uploaded?: number;
+    /** Set when Drape refused uploads because the organization's access ended. */
+    billing?: BillingRefusal;
+}
+export interface BillingRefusal {
+    status: string;
+    /** Says whether nothing or only some of the run's results were saved. */
+    message: string;
+    upgrade_url?: string;
 }
 export interface Upload {
     drape_url: string;

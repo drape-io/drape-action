@@ -199,6 +199,8 @@ Comments are posted as sticky (updating) comments on pull requests. Each command
 - **Security Scan**: severity breakdown table, new/resolved CVEs with NVD links, SLA violations
 - **Lint**: violation counts with diff highlighting, new violations with file/line/rule details
 
+If Drape refused uploads because the organization's access has ended, the comment says which results were not saved and links to where an admin can restore access. Billing never fails the job: the CLI exits 0 in that case, and the warning also appears as an annotation on the run.
+
 To disable comments, set `comment: 'false'`.
 
 ## Development
