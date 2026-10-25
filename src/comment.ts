@@ -36,12 +36,19 @@ export function generateComment(
 	const hasUploads = uploads.length > 0;
 	const billing = response.billing;
 
-	if (!hasUploads && billing) {
-		return generateBillingComment(command, billing, group, commentTitle);
+	if (!hasUploads && exitCode !== 0) {
+		const error = generateErrorComment(
+			command,
+			exitCode,
+			stderr,
+			group,
+			commentTitle,
+		);
+		return billing ? withBillingNotice(error, billing) : error;
 	}
 
-	if (!hasUploads && exitCode !== 0) {
-		return generateErrorComment(command, exitCode, stderr, group, commentTitle);
+	if (!hasUploads && billing) {
+		return generateBillingComment(command, billing, group, commentTitle);
 	}
 
 	if (!hasUploads) {
@@ -56,7 +63,12 @@ export function generateComment(
 		group,
 		commentTitle,
 	);
-	return billing ? `${body}\n${billingNotice(billing)}\n` : body;
+	return billing ? withBillingNotice(body, billing) : body;
+}
+
+/** The notice after the comment, set apart so it isn't read as part of the footer's quote. */
+function withBillingNotice(body: string, billing: BillingRefusal): string {
+	return `${body.trimEnd()}\n\n${billingNotice(billing)}\n`;
 }
 
 function generateResultsComment(

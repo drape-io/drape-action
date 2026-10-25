@@ -178,6 +178,8 @@ With default `wait: true`, each shard blocks until all `total-shards` shards arr
 | `passed` | Whether the check passed (`true`/`false`) |
 | `comment-body` | Generated comment markdown |
 
+When Drape refused the uploads for billing, `exit-code` is `0` and `passed` is `true` even though nothing was checked; `result-json` has a `billing` field in that case.
+
 ## Permissions
 
 The action requires:

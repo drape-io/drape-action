@@ -32495,17 +32495,22 @@ function generateComment(command, exitCode, response, stderr, group, commentTitl
     const uploads = response.uploads ?? [];
     const hasUploads = uploads.length > 0;
     const billing = response.billing;
+    if (!hasUploads && exitCode !== 0) {
+        const error = generateErrorComment(command, exitCode, stderr, group, commentTitle);
+        return billing ? withBillingNotice(error, billing) : error;
+    }
     if (!hasUploads && billing) {
         return generateBillingComment(command, billing, group, commentTitle);
-    }
-    if (!hasUploads && exitCode !== 0) {
-        return generateErrorComment(command, exitCode, stderr, group, commentTitle);
     }
     if (!hasUploads) {
         return "";
     }
     const body = generateResultsComment(command, uploads, exitCode, response, group, commentTitle);
-    return billing ? `${body}\n${billingNotice(billing)}\n` : body;
+    return billing ? withBillingNotice(body, billing) : body;
+}
+/** The notice after the comment, set apart so it isn't read as part of the footer's quote. */
+function withBillingNotice(body, billing) {
+    return `${body.trimEnd()}\n\n${billingNotice(billing)}\n`;
 }
 function generateResultsComment(command, uploads, exitCode, response, group, commentTitle) {
     switch (command) {
