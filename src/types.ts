@@ -81,6 +81,21 @@ export interface ScanResult {
 	unsuppressed_vulnerabilities?: number;
 	unsuppressed_highest_severity?: string;
 	highest_severity?: string;
+	// Where the repository stands on its default branch, across every scan
+	// and GitHub alert. Older servers don't send it.
+	repo_security?: RepoSecurity;
+}
+
+// Open CVEs in the buckets the repository's Security page uses: to fix
+// (past_sla of them overdue), no fix upstream, and suppressed.
+export interface RepoSecurity {
+	repository: string;
+	branch: string;
+	to_fix: number;
+	past_sla: number;
+	no_fix: number;
+	suppressed: number;
+	url?: string;
 }
 
 export interface ScanDiff {

@@ -8,6 +8,7 @@ import type {
 	FlakyTest,
 	LintDiff,
 	LintResult,
+	RepoSecurity,
 	ScanDiff,
 	ScanResult,
 	TestsResult,
@@ -314,6 +315,8 @@ function generateScanComment(
 	const resolvedGroups: CveGroup[] = [];
 	let allSlaViolations: ScanDiff["sla_violations"] = [];
 	let scanName = "";
+	// The last upload's: each is computed when its scan is processed.
+	let repoSecurity: RepoSecurity | undefined;
 	// Per-CVE counts, used only when every diff has them, so a mix of old
 	// and new servers never adds CVEs to package findings.
 	const cveCounts: CveCounts = {
@@ -328,6 +331,7 @@ function generateScanComment(
 		const r = upload.result as ScanResult | null;
 		if (!r) continue;
 		if (!scanName && r.scan_name) scanName = r.scan_name;
+		if (r.repo_security) repoSecurity = r.repo_security;
 		unsuppressedTotal += r.unsuppressed_vulnerabilities ?? 0;
 
 		const diff = r.scan_diff;
@@ -430,6 +434,9 @@ function generateScanComment(
 				`> :warning: **${existing} existing ${existing === 1 ? "vulnerability still needs" : "vulnerabilities still need"} action.** ${existing === 1 ? "It predates" : "They predate"} this change, so ${existing === 1 ? "it doesn't" : "they don't"} block it.`,
 			);
 		}
+		if (repoSecurity) {
+			out.push("", repoSecurityLine(repoSecurity));
+		}
 		out.push("");
 
 		// The server's unchanged count is per package; there is no per-CVE
@@ -504,10 +511,26 @@ function generateScanComment(
 			`| Total vulnerabilities | ${totalVulns} |`,
 			`| Highest severity | ${highest} |`,
 		);
+		if (repoSecurity) {
+			out.push("", repoSecurityLine(repoSecurity));
+		}
 	}
 
 	out.push("", footer(exitCode, drapeUrl));
 	return lines(...out);
+}
+
+// The repository beyond this change, in the Security page's buckets, e.g.
+// "acme/app on main, across every scan and GitHub alert: 9 CVEs to fix (7
+// past SLA) · 15 with no fix".
+function repoSecurityLine(rs: RepoSecurity): string {
+	const parts = [
+		`${rs.to_fix} ${rs.to_fix === 1 ? "CVE" : "CVEs"} to fix${rs.past_sla > 0 ? ` (${rs.past_sla} past SLA)` : ""}`,
+	];
+	if (rs.no_fix > 0) parts.push(`${rs.no_fix} with no fix`);
+	if (rs.suppressed > 0) parts.push(`${rs.suppressed} suppressed`);
+	if (rs.url) parts.push(`[View in Drape](${rs.url})`);
+	return `> **${rs.repository} on ${rs.branch}, across every scan and GitHub alert:** ${parts.join(" · ")}`;
 }
 
 const SEVERITY_RANK: Record<string, number> = {

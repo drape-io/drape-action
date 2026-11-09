@@ -650,6 +650,107 @@ describe("generateComment", () => {
 			expect(body).toContain("Result: Failed");
 		});
 
+		it("says where the whole repository stands", () => {
+			const diff = {
+				new_critical_count: 0,
+				new_high_count: 0,
+				new_medium_count: 0,
+				new_low_count: 0,
+				suppressed_cves_count: 0,
+				unchanged_cves_count: 10,
+				new_cves: [],
+				resolved_cves: [],
+				sla_violations: [],
+			};
+			const response: DrapeCliResponse = {
+				uploads: [
+					{
+						drape_url: "",
+						result: {
+							scan_diff: diff,
+							repo_security: {
+								repository: "acme/app",
+								branch: "main",
+								to_fix: 9,
+								past_sla: 7,
+								no_fix: 15,
+								suppressed: 2,
+								url: "https://drape.example/security/?branch=main",
+							},
+						},
+					},
+				],
+			};
+			const body = generateComment("scan", 1, response, "");
+
+			expect(body).toContain(
+				"> **acme/app on main, across every scan and GitHub alert:** 9 CVEs to fix (7 past SLA) · 15 with no fix · 2 suppressed · [View in Drape](https://drape.example/security/?branch=main)",
+			);
+
+			// Zero buckets and a missing link drop out.
+			const clean = generateComment(
+				"scan",
+				0,
+				{
+					uploads: [
+						{
+							drape_url: "",
+							result: {
+								scan_diff: diff,
+								repo_security: {
+									repository: "acme/app",
+									branch: "main",
+									to_fix: 0,
+									past_sla: 0,
+									no_fix: 0,
+									suppressed: 0,
+								},
+							},
+						},
+					],
+				},
+				"",
+			);
+			expect(clean).toContain(
+				"> **acme/app on main, across every scan and GitHub alert:** 0 CVEs to fix\n",
+			);
+
+			// A scan with nothing to compare against still gets the line.
+			const noBaseline = generateComment(
+				"scan",
+				0,
+				{
+					uploads: [
+						{
+							drape_url: "",
+							result: {
+								total_vulnerabilities: 3,
+								repo_security: {
+									repository: "acme/app",
+									branch: "main",
+									to_fix: 1,
+									past_sla: 0,
+									no_fix: 2,
+									suppressed: 0,
+								},
+							},
+						},
+					],
+				},
+				"",
+			);
+			expect(noBaseline).toContain("1 CVE to fix · 2 with no fix");
+
+			// Servers that don't send it get no line.
+			const older = generateComment(
+				"scan",
+				0,
+				{ uploads: [{ drape_url: "", result: { scan_diff: diff } }] },
+				"",
+			);
+			expect(older).not.toContain("across every scan");
+		});
+
 		it("shows no new vulnerabilities", () => {
 			const response: DrapeCliResponse = {
 				uploads: [
