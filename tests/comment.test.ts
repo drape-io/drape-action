@@ -684,8 +684,62 @@ describe("generateComment", () => {
 			const body = generateComment("scan", 1, response, "");
 
 			expect(body).toContain(
-				"> **acme/app on main, across every scan and GitHub alert:** 9 to fix (7 past SLA) · 15 with no fix · 2 suppressed · [View in Drape](https://drape.example/security/?branch=main)",
+				"> **acme/app on main, across every scan and GitHub alert:** 9 CVEs to fix (7 past SLA) · 15 with no fix · 2 suppressed · [View in Drape](https://drape.example/security/?branch=main)",
 			);
+
+			// Zero buckets and a missing link drop out.
+			const clean = generateComment(
+				"scan",
+				0,
+				{
+					uploads: [
+						{
+							drape_url: "",
+							result: {
+								scan_diff: diff,
+								repo_security: {
+									repository: "acme/app",
+									branch: "main",
+									to_fix: 0,
+									past_sla: 0,
+									no_fix: 0,
+									suppressed: 0,
+								},
+							},
+						},
+					],
+				},
+				"",
+			);
+			expect(clean).toContain(
+				"> **acme/app on main, across every scan and GitHub alert:** 0 CVEs to fix\n",
+			);
+
+			// A scan with nothing to compare against still gets the line.
+			const noBaseline = generateComment(
+				"scan",
+				0,
+				{
+					uploads: [
+						{
+							drape_url: "",
+							result: {
+								total_vulnerabilities: 3,
+								repo_security: {
+									repository: "acme/app",
+									branch: "main",
+									to_fix: 1,
+									past_sla: 0,
+									no_fix: 2,
+									suppressed: 0,
+								},
+							},
+						},
+					],
+				},
+				"",
+			);
+			expect(noBaseline).toContain("1 CVE to fix · 2 with no fix");
 
 			// Servers that don't send it get no line.
 			const older = generateComment(

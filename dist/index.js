@@ -32820,16 +32820,19 @@ function generateScanComment(uploads, exitCode, commentTitle) {
         const totalVulns = r?.total_vulnerabilities ?? 0;
         const highest = r?.unsuppressed_highest_severity ?? r?.highest_severity ?? "none";
         out.push("| Metric | Value |", "|--------|-------|", `| Total vulnerabilities | ${totalVulns} |`, `| Highest severity | ${highest} |`);
+        if (repoSecurity) {
+            out.push("", repoSecurityLine(repoSecurity));
+        }
     }
     out.push("", footer(exitCode, drapeUrl));
     return lines(...out);
 }
 // The repository beyond this change, in the Security page's buckets, e.g.
-// "acme/app on main, across every scan and GitHub alert: 9 to fix (7 past
-// SLA) · 15 with no fix".
+// "acme/app on main, across every scan and GitHub alert: 9 CVEs to fix (7
+// past SLA) · 15 with no fix".
 function repoSecurityLine(rs) {
     const parts = [
-        `${rs.to_fix} to fix${rs.past_sla > 0 ? ` (${rs.past_sla} past SLA)` : ""}`,
+        `${rs.to_fix} ${rs.to_fix === 1 ? "CVE" : "CVEs"} to fix${rs.past_sla > 0 ? ` (${rs.past_sla} past SLA)` : ""}`,
     ];
     if (rs.no_fix > 0)
         parts.push(`${rs.no_fix} with no fix`);

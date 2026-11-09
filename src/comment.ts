@@ -511,6 +511,9 @@ function generateScanComment(
 			`| Total vulnerabilities | ${totalVulns} |`,
 			`| Highest severity | ${highest} |`,
 		);
+		if (repoSecurity) {
+			out.push("", repoSecurityLine(repoSecurity));
+		}
 	}
 
 	out.push("", footer(exitCode, drapeUrl));
@@ -518,11 +521,11 @@ function generateScanComment(
 }
 
 // The repository beyond this change, in the Security page's buckets, e.g.
-// "acme/app on main, across every scan and GitHub alert: 9 to fix (7 past
-// SLA) · 15 with no fix".
+// "acme/app on main, across every scan and GitHub alert: 9 CVEs to fix (7
+// past SLA) · 15 with no fix".
 function repoSecurityLine(rs: RepoSecurity): string {
 	const parts = [
-		`${rs.to_fix} to fix${rs.past_sla > 0 ? ` (${rs.past_sla} past SLA)` : ""}`,
+		`${rs.to_fix} ${rs.to_fix === 1 ? "CVE" : "CVEs"} to fix${rs.past_sla > 0 ? ` (${rs.past_sla} past SLA)` : ""}`,
 	];
 	if (rs.no_fix > 0) parts.push(`${rs.no_fix} with no fix`);
 	if (rs.suppressed > 0) parts.push(`${rs.suppressed} suppressed`);
