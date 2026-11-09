@@ -58,6 +58,16 @@ export interface ScanResult {
     unsuppressed_vulnerabilities?: number;
     unsuppressed_highest_severity?: string;
     highest_severity?: string;
+    repo_security?: RepoSecurity;
+}
+export interface RepoSecurity {
+    repository: string;
+    branch: string;
+    to_fix: number;
+    past_sla: number;
+    no_fix: number;
+    suppressed: number;
+    url?: string;
 }
 export interface ScanDiff {
     passed?: boolean;
