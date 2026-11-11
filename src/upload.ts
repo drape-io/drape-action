@@ -61,17 +61,17 @@ export function buildCliArgs(inputs: ActionInputs): string[] {
 
 /**
  * The CLI's environment: the runner's (which carries the OIDC token request variables when the
- * job has `id-token: write`) plus the inputs. Without an API key the CLI uses that OIDC token.
+ * job has `id-token: write`) plus the inputs. With no `api-key` input and no `DRAPE_API_KEY` in
+ * the job env, the CLI uses that OIDC token.
  */
 export function buildCliEnv(
 	inputs: ActionInputs,
 	baseEnv: NodeJS.ProcessEnv,
 ): Record<string, string> {
-	const env: Record<string, string> = {};
-	for (const [key, value] of Object.entries(baseEnv)) {
-		if (value !== undefined) env[key] = value;
-	}
-	env.DRAPE_API_URL = inputs.apiUrl;
+	const env: Record<string, string> = {
+		...baseEnv,
+		DRAPE_API_URL: inputs.apiUrl,
+	};
 	if (inputs.apiKey) env.DRAPE_API_KEY = inputs.apiKey;
 	if (inputs.org) env.DRAPE_ORG = inputs.org;
 	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
