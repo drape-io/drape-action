@@ -33109,7 +33109,7 @@ function getInputs() {
     return {
         command: command,
         file: core.getInput("file", { required: true }),
-        apiKey: core.getInput("api-key", { required: true }),
+        apiKey: core.getInput("api-key") || undefined,
         org: core.getInput("org") || undefined,
         repo: core.getInput("repo") || undefined,
         cliVersion: core.getInput("cli-version") || "latest",
@@ -33450,6 +33450,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.buildCliArgs = buildCliArgs;
+exports.buildCliEnv = buildCliEnv;
 exports.runUpload = runUpload;
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
@@ -33511,6 +33512,25 @@ function buildCliArgs(inputs) {
     }
     return args;
 }
+/**
+ * The CLI's environment: the runner's (which carries the OIDC token request variables when the
+ * job has `id-token: write`) plus the inputs. Without an API key the CLI uses that OIDC token.
+ */
+function buildCliEnv(inputs, baseEnv) {
+    const env = {};
+    for (const [key, value] of Object.entries(baseEnv)) {
+        if (value !== undefined)
+            env[key] = value;
+    }
+    env.DRAPE_API_URL = inputs.apiUrl;
+    if (inputs.apiKey)
+        env.DRAPE_API_KEY = inputs.apiKey;
+    if (inputs.org)
+        env.DRAPE_ORG = inputs.org;
+    if (inputs.repo)
+        env.DRAPE_REPO = inputs.repo;
+    return env;
+}
 async function runUpload(inputs) {
     if (inputs.command !== "coverage" &&
         (inputs.totalShards !== undefined || inputs.shardKey)) {
@@ -33522,15 +33542,7 @@ async function runUpload(inputs) {
         core.warning(`'drape-run-id' is only used with coverage or tests; ignoring for command: ${inputs.command}.`);
     }
     const args = buildCliArgs(inputs);
-    const env = {
-        ...process.env,
-        DRAPE_API_KEY: inputs.apiKey,
-        DRAPE_API_URL: inputs.apiUrl,
-    };
-    if (inputs.org)
-        env.DRAPE_ORG = inputs.org;
-    if (inputs.repo)
-        env.DRAPE_REPO = inputs.repo;
+    const env = buildCliEnv(inputs, process.env);
     const result = await exec.getExecOutput("drape", args, {
         ignoreReturnCode: true,
         silent: !inputs.verbose,

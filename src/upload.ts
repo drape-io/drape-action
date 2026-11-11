@@ -59,6 +59,25 @@ export function buildCliArgs(inputs: ActionInputs): string[] {
 	return args;
 }
 
+/**
+ * The CLI's environment: the runner's (which carries the OIDC token request variables when the
+ * job has `id-token: write`) plus the inputs. Without an API key the CLI uses that OIDC token.
+ */
+export function buildCliEnv(
+	inputs: ActionInputs,
+	baseEnv: NodeJS.ProcessEnv,
+): Record<string, string> {
+	const env: Record<string, string> = {};
+	for (const [key, value] of Object.entries(baseEnv)) {
+		if (value !== undefined) env[key] = value;
+	}
+	env.DRAPE_API_URL = inputs.apiUrl;
+	if (inputs.apiKey) env.DRAPE_API_KEY = inputs.apiKey;
+	if (inputs.org) env.DRAPE_ORG = inputs.org;
+	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
+	return env;
+}
+
 export async function runUpload(
 	inputs: ActionInputs,
 ): Promise<UploadExecResult> {
@@ -82,13 +101,7 @@ export async function runUpload(
 
 	const args = buildCliArgs(inputs);
 
-	const env: Record<string, string> = {
-		...process.env,
-		DRAPE_API_KEY: inputs.apiKey,
-		DRAPE_API_URL: inputs.apiUrl,
-	};
-	if (inputs.org) env.DRAPE_ORG = inputs.org;
-	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
+	const env = buildCliEnv(inputs, process.env);
 
 	const result = await exec.getExecOutput("drape", args, {
 		ignoreReturnCode: true,

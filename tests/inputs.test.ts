@@ -47,6 +47,15 @@ describe("getInputs", () => {
 		expect(inputs.apiKey).toBe("drape-key-123");
 	});
 
+	it("treats a missing api-key as none, for GitHub OIDC", () => {
+		const getInput = vi.mocked(core.getInput);
+		const defaults = getInput.getMockImplementation();
+		getInput.mockImplementation((name: string, options?: core.InputOptions) =>
+			name === "api-key" ? "" : (defaults?.(name, options) ?? ""),
+		);
+		expect(getInputs().apiKey).toBeUndefined();
+	});
+
 	it("sets default comment header from command", () => {
 		const inputs = getInputs();
 		expect(inputs.commentHeader).toBe("drape-coverage");

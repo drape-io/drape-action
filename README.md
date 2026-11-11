@@ -6,6 +6,22 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
 
 ## Usage
 
+The job needs permission to request a GitHub OIDC token, which the action uses instead of an API
+key. Keep your other permissions:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write  # PR comments
+  id-token: write       # upload without an API key
+```
+
+Drape accepts the token when the Drape GitHub App is connected for the repository's owner and the
+repository is turned on in Drape. Pull requests from forks get no OIDC token (or secrets), so they
+can't upload. Elsewhere, or to upload as a different repository, pass `api-key` (it always wins
+over the OIDC token). Needs Drape CLI v0.10.0 or later; with `cli-version` pinned to an older one,
+pass `api-key`.
+
 ### Coverage
 
 ```yaml
@@ -16,7 +32,6 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
     command: coverage
     file: coverage.xml
     format: cobertura
-    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ### Test Results
@@ -28,7 +43,6 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
   with:
     command: tests
     file: test-results/junit.xml
-    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ### Security Scan
@@ -45,7 +59,6 @@ A GitHub Action for uploading coverage, test results, security scans, and lint r
     scan-type: dependency
     fail-on-vulnerabilities: 'true'
     fail-on-severity: high
-    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 Native scanner JSON preserves richer fix-state metadata than SARIF (the
@@ -63,7 +76,6 @@ SARIF path drops `fixed` / `not-fixed` / `wont-fix` distinctions). Prefer
     format: grype-json
     scan-name: my-app
     scan-type: image
-    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ```yaml
@@ -77,7 +89,6 @@ SARIF path drops `fixed` / `not-fixed` / `wont-fix` distinctions). Prefer
     format: trivy-json
     scan-name: my-app
     scan-type: image
-    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ### Lint
@@ -89,7 +100,6 @@ SARIF path drops `fixed` / `not-fixed` / `wont-fix` distinctions). Prefer
   with:
     command: lint
     file: lint-results/lint.sarif
-    api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 ### Advanced: Batched coverage (sharded tests)
@@ -112,7 +122,6 @@ test:
         total-shards: 4
         group: backend                              # logical coverage group
         job-name: backend (${{ matrix.shard }}/4)   # unique per shard
-        api-key: ${{ secrets.DRAPE_API_KEY }}
 ```
 
 Result: one merged PR comment across all 4 shards (instead of 4 separate comments).
@@ -129,7 +138,7 @@ With default `wait: true`, each shard blocks until all `total-shards` shards arr
 |-------|----------|---------|-------------|
 | `command` | Yes | | Upload type: `coverage`, `tests`, `scan`, `lint` |
 | `file` | Yes | | File path or glob pattern |
-| `api-key` | Yes | | Drape API key |
+| `api-key` | No | | Drape API key. Not needed with `id-token: write` |
 | `org` | No | `github.repository_owner` | Drape organization slug |
 | `repo` | No | `github.repository` | Drape repository name |
 | `cli-version` | No | `latest` | Drape CLI version |
@@ -183,6 +192,7 @@ When Drape refused the uploads for billing, `exit-code` is `0` and `passed` is `
 ## Permissions
 
 The action requires:
+- **`id-token: write`** — to upload without an API key (see [Usage](#usage))
 - **`pull-requests: write`** — for posting PR comments
 - **`contents: read`** — for checkout (if not already checked out)
 
@@ -190,6 +200,7 @@ The action requires:
 permissions:
   contents: read
   pull-requests: write
+  id-token: write
 ```
 
 ## PR Comments
