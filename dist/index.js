@@ -33109,7 +33109,7 @@ function getInputs() {
     return {
         command: command,
         file: core.getInput("file", { required: true }),
-        apiKey: core.getInput("api-key", { required: true }),
+        apiKey: core.getInput("api-key") || undefined,
         org: core.getInput("org") || undefined,
         repo: core.getInput("repo") || undefined,
         cliVersion: core.getInput("cli-version") || "latest",
@@ -33320,13 +33320,21 @@ async function run() {
         if (body) {
             const pr = github.context.payload.pull_request;
             if (pr) {
-                await (0, sticky_comment_js_1.postStickyComment)(inputs.githubToken, github.context.repo.owner, github.context.repo.repo, pr.number, inputs.commentHeader, body);
+                try {
+                    await (0, sticky_comment_js_1.postStickyComment)(inputs.githubToken, github.context.repo.owner, github.context.repo.repo, pr.number, inputs.commentHeader, body);
+                }
+                catch (error) {
+                    // The CLI's failure is the one to report: a fork PR's read-only token can't comment.
+                    if (result.exitCode === 0)
+                        throw error;
+                    core.warning(`Could not post the PR comment: ${error}`);
+                }
             }
         }
     }
     // Step 5: Propagate failure
     if (result.exitCode !== 0) {
-        core.setFailed(`Drape CLI exited with code ${result.exitCode}`);
+        core.setFailed((0, upload_js_1.cliFailureMessage)(result.exitCode, result.stderr));
     }
 }
 run().catch((error) => {
@@ -33450,6 +33458,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.buildCliArgs = buildCliArgs;
+exports.buildCliEnv = buildCliEnv;
+exports.cliFailureMessage = cliFailureMessage;
 exports.runUpload = runUpload;
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
@@ -33511,6 +33521,29 @@ function buildCliArgs(inputs) {
     }
     return args;
 }
+/**
+ * The runner's env carries the OIDC token request variables under `id-token: write`; with no
+ * API key from the input or the job env, the CLI uses that token.
+ */
+function buildCliEnv(inputs, baseEnv) {
+    const env = {
+        ...baseEnv,
+        DRAPE_API_URL: inputs.apiUrl,
+    };
+    if (inputs.apiKey)
+        env.DRAPE_API_KEY = inputs.apiKey;
+    if (inputs.org)
+        env.DRAPE_ORG = inputs.org;
+    if (inputs.repo)
+        env.DRAPE_REPO = inputs.repo;
+    return env;
+}
+/** The step's failure message, with the CLI's stderr so the reason shows in the annotation. */
+function cliFailureMessage(exitCode, stderr) {
+    const message = `Drape CLI exited with code ${exitCode}`;
+    const reason = stderr.trim();
+    return reason ? `${message}: ${reason}` : message;
+}
 async function runUpload(inputs) {
     if (inputs.command !== "coverage" &&
         (inputs.totalShards !== undefined || inputs.shardKey)) {
@@ -33522,15 +33555,7 @@ async function runUpload(inputs) {
         core.warning(`'drape-run-id' is only used with coverage or tests; ignoring for command: ${inputs.command}.`);
     }
     const args = buildCliArgs(inputs);
-    const env = {
-        ...process.env,
-        DRAPE_API_KEY: inputs.apiKey,
-        DRAPE_API_URL: inputs.apiUrl,
-    };
-    if (inputs.org)
-        env.DRAPE_ORG = inputs.org;
-    if (inputs.repo)
-        env.DRAPE_REPO = inputs.repo;
+    const env = buildCliEnv(inputs, process.env);
     const result = await exec.getExecOutput("drape", args, {
         ignoreReturnCode: true,
         silent: !inputs.verbose,

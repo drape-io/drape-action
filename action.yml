@@ -14,8 +14,8 @@ inputs:
     description: 'File path(s) or glob pattern(s) to upload (space or newline separated, e.g. "coverage/*.xml")'
     required: true
   api-key:
-    description: 'Drape API key'
-    required: true
+    description: 'Drape API key. Not needed on GitHub Actions when the job has `permissions: id-token: write`'
+    required: false
 
   # Organization/repo (auto-detected from github context)
   org:

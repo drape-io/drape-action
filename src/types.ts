@@ -180,7 +180,8 @@ export type Command = "coverage" | "tests" | "scan" | "lint";
 export interface ActionInputs {
 	command: Command;
 	file: string;
-	apiKey: string;
+	// Unset: the CLI uses the job's GitHub OIDC token (needs `id-token: write`).
+	apiKey?: string;
 	org?: string;
 	repo?: string;
 	cliVersion: string;

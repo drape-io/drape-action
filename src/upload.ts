@@ -59,6 +59,31 @@ export function buildCliArgs(inputs: ActionInputs): string[] {
 	return args;
 }
 
+/**
+ * The runner's env carries the OIDC token request variables under `id-token: write`; with no
+ * API key from the input or the job env, the CLI uses that token.
+ */
+export function buildCliEnv(
+	inputs: ActionInputs,
+	baseEnv: NodeJS.ProcessEnv,
+): Record<string, string> {
+	const env: Record<string, string> = {
+		...baseEnv,
+		DRAPE_API_URL: inputs.apiUrl,
+	};
+	if (inputs.apiKey) env.DRAPE_API_KEY = inputs.apiKey;
+	if (inputs.org) env.DRAPE_ORG = inputs.org;
+	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
+	return env;
+}
+
+/** The step's failure message, with the CLI's stderr so the reason shows in the annotation. */
+export function cliFailureMessage(exitCode: number, stderr: string): string {
+	const message = `Drape CLI exited with code ${exitCode}`;
+	const reason = stderr.trim();
+	return reason ? `${message}: ${reason}` : message;
+}
+
 export async function runUpload(
 	inputs: ActionInputs,
 ): Promise<UploadExecResult> {
@@ -82,13 +107,7 @@ export async function runUpload(
 
 	const args = buildCliArgs(inputs);
 
-	const env: Record<string, string> = {
-		...process.env,
-		DRAPE_API_KEY: inputs.apiKey,
-		DRAPE_API_URL: inputs.apiUrl,
-	};
-	if (inputs.org) env.DRAPE_ORG = inputs.org;
-	if (inputs.repo) env.DRAPE_REPO = inputs.repo;
+	const env = buildCliEnv(inputs, process.env);
 
 	const result = await exec.getExecOutput("drape", args, {
 		ignoreReturnCode: true,
