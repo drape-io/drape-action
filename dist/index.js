@@ -33513,9 +33513,8 @@ function buildCliArgs(inputs) {
     return args;
 }
 /**
- * The CLI's environment: the runner's (which carries the OIDC token request variables when the
- * job has `id-token: write`) plus the inputs. With no `api-key` input and no `DRAPE_API_KEY` in
- * the job env, the CLI uses that OIDC token.
+ * The runner's env carries the OIDC token request variables under `id-token: write`; with no
+ * API key from the input or the job env, the CLI uses that token.
  */
 function buildCliEnv(inputs, baseEnv) {
     const env = {

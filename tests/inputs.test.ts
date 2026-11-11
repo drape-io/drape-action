@@ -48,11 +48,11 @@ describe("getInputs", () => {
 	});
 
 	it("treats a missing api-key as none, for GitHub OIDC", () => {
-		const getInput = vi.mocked(core.getInput);
-		const defaults = getInput.getMockImplementation();
-		getInput.mockImplementation((name: string, options?: core.InputOptions) =>
-			name === "api-key" ? "" : (defaults?.(name, options) ?? ""),
-		);
+		vi.mocked(core.getInput).mockImplementation((name: string) => {
+			if (name === "command") return "coverage";
+			if (name === "file") return "coverage.xml";
+			return "";
+		});
 		expect(getInputs().apiKey).toBeUndefined();
 	});
 

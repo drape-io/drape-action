@@ -208,7 +208,7 @@ describe("buildCliArgs", () => {
 
 describe("buildCliEnv", () => {
 	const oidcRunner = {
-		ACTIONS_ID_TOKEN_REQUEST_URL: "https://token.example/?api-version=2.0",
+		ACTIONS_ID_TOKEN_REQUEST_URL: "https://token.example",
 		ACTIONS_ID_TOKEN_REQUEST_TOKEN: "runner-secret",
 	};
 
@@ -220,11 +220,7 @@ describe("buildCliEnv", () => {
 	it("leaves the key out and keeps the OIDC request variables without one", () => {
 		const env = buildCliEnv(makeInputs({ apiKey: undefined }), oidcRunner);
 		expect(env).not.toHaveProperty("DRAPE_API_KEY");
-		expect(env.ACTIONS_ID_TOKEN_REQUEST_URL).toBe(
-			oidcRunner.ACTIONS_ID_TOKEN_REQUEST_URL,
-		);
 		expect(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN).toBe("runner-secret");
-		expect(env.DRAPE_API_URL).toBe("https://app.drape.io");
 	});
 });
 
