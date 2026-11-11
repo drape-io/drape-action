@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionInputs } from "../src/types.js";
-import { buildCliArgs, buildCliEnv, runUpload } from "../src/upload.js";
+import {
+	buildCliArgs,
+	buildCliEnv,
+	cliFailureMessage,
+	runUpload,
+} from "../src/upload.js";
 
 // Mock @actions/exec and @actions/core
 vi.mock("@actions/exec", () => ({
@@ -221,6 +226,18 @@ describe("buildCliEnv", () => {
 		const env = buildCliEnv(makeInputs({ apiKey: undefined }), oidcRunner);
 		expect(env).not.toHaveProperty("DRAPE_API_KEY");
 		expect(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN).toBe("runner-secret");
+	});
+});
+
+describe("cliFailureMessage", () => {
+	it("includes the CLI's stderr", () => {
+		expect(cliFailureMessage(2, "error: no credential\n")).toBe(
+			"Drape CLI exited with code 2: error: no credential",
+		);
+	});
+
+	it("gives the exit code alone when stderr is empty", () => {
+		expect(cliFailureMessage(1, "")).toBe("Drape CLI exited with code 1");
 	});
 });
 

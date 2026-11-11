@@ -4,7 +4,7 @@ import { generateComment } from "./comment.js";
 import { getInputs } from "./inputs.js";
 import { installCli } from "./install.js";
 import { postStickyComment } from "./sticky-comment.js";
-import { runUpload } from "./upload.js";
+import { cliFailureMessage, runUpload } from "./upload.js";
 
 async function run(): Promise<void> {
 	const inputs = getInputs();
@@ -36,21 +36,27 @@ async function run(): Promise<void> {
 		if (body) {
 			const pr = github.context.payload.pull_request;
 			if (pr) {
-				await postStickyComment(
-					inputs.githubToken,
-					github.context.repo.owner,
-					github.context.repo.repo,
-					pr.number,
-					inputs.commentHeader,
-					body,
-				);
+				try {
+					await postStickyComment(
+						inputs.githubToken,
+						github.context.repo.owner,
+						github.context.repo.repo,
+						pr.number,
+						inputs.commentHeader,
+						body,
+					);
+				} catch (error) {
+					// The CLI's failure is the one to report: a fork PR's read-only token can't comment.
+					if (result.exitCode === 0) throw error;
+					core.warning(`Could not post the PR comment: ${error}`);
+				}
 			}
 		}
 	}
 
 	// Step 5: Propagate failure
 	if (result.exitCode !== 0) {
-		core.setFailed(`Drape CLI exited with code ${result.exitCode}`);
+		core.setFailed(cliFailureMessage(result.exitCode, result.stderr));
 	}
 }
 

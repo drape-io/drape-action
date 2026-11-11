@@ -77,6 +77,13 @@ export function buildCliEnv(
 	return env;
 }
 
+/** The step's failure message, with the CLI's stderr so the reason shows in the annotation. */
+export function cliFailureMessage(exitCode: number, stderr: string): string {
+	const message = `Drape CLI exited with code ${exitCode}`;
+	const reason = stderr.trim();
+	return reason ? `${message}: ${reason}` : message;
+}
+
 export async function runUpload(
 	inputs: ActionInputs,
 ): Promise<UploadExecResult> {
